@@ -2313,15 +2313,18 @@ class HavenApp {
     });
 
     // ── Settings popout modal ────────────────────────────
-    document.getElementById('open-settings-btn').addEventListener('click', () => {
+    const openSettingsModal = () => {
       this._snapshotAdminSettings();
       document.getElementById('settings-modal').style.display = 'flex';
       this._syncSettingsNav();
-    });
+      // Eagerly fetch data that requires async calls so sections don't
+      // sit on "Loading..." indefinitely if the user never clicks the nav item.
+      loadTotpStatus();
+      if (this.user?.isAdmin) this._loadRoles();
+    };
+    document.getElementById('open-settings-btn').addEventListener('click', openSettingsModal);
     document.getElementById('mobile-settings-btn')?.addEventListener('click', () => {
-      this._snapshotAdminSettings();
-      document.getElementById('settings-modal').style.display = 'flex';
-      this._syncSettingsNav();
+      openSettingsModal();
       document.getElementById('app-body')?.classList.remove('mobile-sidebar-open');
       document.getElementById('mobile-overlay')?.classList.remove('active');
     });
