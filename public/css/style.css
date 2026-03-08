@@ -8860,7 +8860,7 @@ html.rgb-cycling *::after {
   html, body { overscroll-behavior-y: contain; }
 
   /* Prevent browser text-selection / callout on long-press of messages;
-     our JS handles long-press → toolbar instead. */
+     our JS handles the ⋯ button → toolbar instead. */
   .message, .message-compact {
     -webkit-user-select: none;
     user-select: none;
@@ -8890,7 +8890,7 @@ html.rgb-cycling *::after {
   .message:hover .msg-toolbar,
   .message-compact:hover .msg-toolbar { display: none !important; }
 
-  /* Toolbar: hidden by default, shown only via JS long-press (.msg-selected).
+  /* Toolbar: hidden by default, shown only via JS ⋯ button (.msg-selected).
      Stays position:absolute from the base rule so it floats over
      content instead of pushing layout around. Anchored to top-right
      of the message, same as desktop hover. */
@@ -8927,7 +8927,7 @@ html.rgb-cycling *::after {
 
 /* Extra safety: hide hover toolbar on any coarse-pointer device even if
    the browser claims (hover: hover).  Toolbar is shown via .msg-selected
-   from the JS long-press handler instead. */
+   from the JS ⋯ button handler instead. */
 @media (pointer: coarse) {
   .message:hover .msg-toolbar,
   .message-compact:hover .msg-toolbar { display: none !important; }

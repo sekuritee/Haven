@@ -2322,7 +2322,7 @@ _setupMobile() {
     });
   }
 
-  // ── Mobile message actions: ⋯ button, long-press, double-tap ──
+  // ── Mobile message actions: ⋯ button ──
   // Detect touch capability broadly: matchMedia OR ontouchstart presence.
   const isTouchDevice = window.matchMedia('(hover: none) and (pointer: coarse)').matches
                      || window.matchMedia('(pointer: coarse)').matches
@@ -2330,30 +2330,47 @@ _setupMobile() {
                      || navigator.maxTouchPoints > 0;
   if (isTouchDevice) {
     const messagesEl = document.getElementById('messages');
+    let _suppressDismissUntil = 0;
     // Hide the old floating singleton "⋯" button — each message now has its own
     const oldMoreBtn = document.getElementById('msg-more-btn');
     if (oldMoreBtn) oldMoreBtn.style.display = 'none';
 
     const _deselectAll = () => {
-      messagesEl.querySelectorAll('.msg-selected').forEach(el => el.classList.remove('msg-selected'));
+      messagesEl.querySelectorAll('.msg-selected').forEach(el => {
+        el.classList.remove('msg-selected');
+        const toolbar = el.querySelector('.msg-toolbar');
+        if (toolbar) toolbar.style.removeProperty('display');
+      });
     };
 
     const _selectMsg = (msgEl) => {
       if (!msgEl) return;
       _deselectAll();
       msgEl.classList.add('msg-selected');
+      // Touch interactions often emit a synthetic click right after selection.
+      // Ignore dismiss logic briefly so the toolbar stays open.
+      _suppressDismissUntil = Date.now() + 450;
+      // Force immediate visual update on touch browsers where class-based
+      // CSS can paint one interaction late.
+      const toolbar = msgEl.querySelector('.msg-toolbar');
+      if (toolbar) toolbar.style.setProperty('display', 'flex', 'important');
       if (navigator.vibrate) navigator.vibrate(15);
+      requestAnimationFrame(() => {
+        if (!msgEl.classList.contains('msg-selected')) return;
+        const tb = msgEl.querySelector('.msg-toolbar');
+        if (tb) tb.style.setProperty('display', 'flex', 'important');
+      });
     };
 
-    // Suppress the browser's native context menu on long-press so it
-    // doesn't compete with our custom toolbar.
+    // Suppress the browser's native context menu so it doesn't
+    // compete with our custom toolbar.
     messagesEl.addEventListener('contextmenu', (e) => {
       if (e.target.classList.contains('chat-image')) return;
       const msgEl = e.target.closest('.message, .message-compact');
       if (msgEl) e.preventDefault();
     });
 
-    // ── 1) Inline ⋯ button: always visible on each message ──
+    // ── Inline ⋯ button: always visible on each message ──
     // Tapping it toggles msg-selected which reveals the full toolbar.
     messagesEl.addEventListener('click', (e) => {
       const dotsBtn = e.target.closest('.msg-dots-btn');
@@ -2367,6 +2384,12 @@ _setupMobile() {
         if (!wasSelected) _selectMsg(msgEl);
         return;
       }
+      // Any non-toolbar/non-dots tap should dismiss the current toolbar.
+      // This keeps mobile behavior consistent: tap elsewhere = close actions.
+      if (!e.target.closest('.msg-toolbar')) {
+        if (Date.now() < _suppressDismissUntil) return;
+        _deselectAll();
+      }
       // Let toolbar button taps through
       if (e.target.closest('.msg-toolbar')) return;
       // Let interactive elements through
@@ -2378,60 +2401,6 @@ _setupMobile() {
       // Let images through (lightbox etc)
       if (e.target.closest('img')) return;
     });
-
-    // ── 2) Long-press (500 ms) on message body → select ──
-    let _lpTimer = null;
-    let _lpTarget = null;
-    let _lpStartX = 0;
-    let _lpStartY = 0;
-    messagesEl.addEventListener('touchstart', (e) => {
-      // Ignore if touching toolbar or dots button
-      if (e.target.closest('.msg-toolbar') || e.target.closest('.msg-dots-btn') ||
-          e.target.closest('a') || e.target.closest('img')) return;
-      const msgEl = e.target.closest('.message, .message-compact');
-      if (!msgEl) return;
-      const touch = e.touches[0];
-      _lpStartX = touch.clientX;
-      _lpStartY = touch.clientY;
-      _lpTarget = msgEl;
-      _lpTimer = setTimeout(() => {
-        if (_lpTarget === msgEl) {
-          _selectMsg(msgEl);
-        }
-        _lpTimer = null;
-        _lpTarget = null;
-      }, 500);
-    }, { passive: true });
-    messagesEl.addEventListener('touchmove', (e) => {
-      if (!_lpTimer) return;
-      const touch = e.touches[0];
-      if (Math.abs(touch.clientX - _lpStartX) > 10 || Math.abs(touch.clientY - _lpStartY) > 10) {
-        clearTimeout(_lpTimer); _lpTimer = null; _lpTarget = null;
-      }
-    }, { passive: true });
-    messagesEl.addEventListener('touchend', () => {
-      clearTimeout(_lpTimer); _lpTimer = null; _lpTarget = null;
-    }, { passive: true });
-
-    // ── 3) Double-tap on message body → select ──
-    let _lastTapTime = 0;
-    let _lastTapMsgEl = null;
-    messagesEl.addEventListener('touchend', (e) => {
-      if (e.target.closest('.msg-toolbar') || e.target.closest('.msg-dots-btn') ||
-          e.target.closest('a') || e.target.closest('img') ||
-          e.target.closest('.message-author') || e.target.closest('.message-avatar')) return;
-      const msgEl = e.target.closest('.message, .message-compact');
-      if (!msgEl) return;
-      const now = Date.now();
-      if (_lastTapMsgEl === msgEl && (now - _lastTapTime) < 350) {
-        _selectMsg(msgEl);
-        _lastTapTime = 0;
-        _lastTapMsgEl = null;
-      } else {
-        _lastTapTime = now;
-        _lastTapMsgEl = msgEl;
-      }
-    }, { passive: true });
 
     // Dismiss on touch outside messages
     document.addEventListener('touchstart', (e) => {

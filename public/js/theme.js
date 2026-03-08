@@ -94,6 +94,27 @@ function clearCustomVars() {
 let _rgbRAF = null;
 let _rgbHue = 0;
 let _rgbLastTick = 0;
+let _rgbLastHueInt = -1;
+let _rgbPaletteLut = null;
+let _rgbPaletteLutVibrancy = -1;
+
+function _rebuildRgbPaletteLut(vibrancy) {
+  const vib = Math.max(10, Math.min(100, Math.round(vibrancy)));
+  _rgbPaletteLut = new Array(360);
+  for (let h = 0; h < 360; h += 1) {
+    _rgbPaletteLut[h] = generateCustomPalette(h, 0.75, 0.95, vib / 100);
+  }
+  _rgbPaletteLutVibrancy = vib;
+}
+
+function _getRgbPalette(hue, vibrancy) {
+  const h = Math.round(((hue % 360) + 360) % 360);
+  const vib = Math.max(10, Math.min(100, Math.round(vibrancy)));
+  if (!_rgbPaletteLut || _rgbPaletteLutVibrancy !== vib) {
+    _rebuildRgbPaletteLut(vib);
+  }
+  return { h, palette: _rgbPaletteLut[h] };
+}
 
 function startRgbCycle() {
   stopRgbCycle();
@@ -101,26 +122,48 @@ function startRgbCycle() {
   let speed    = saved ? saved.speed    : 30;   // 1-100
   let vibrancy = saved ? saved.vibrancy : 75;   // 10-100
 
-  // Tick every 50ms (~20 fps) instead of 16ms (60 fps).
-  // Color cycling is perceptually smooth at 20 fps and this reduces CSS
-  // custom-property invalidation from 60×/s to 20×/s, which was the #1
-  // cause of progressive renderer slowdown (every setProperty call
-  // invalidates all computed styles and restarts CSS transitions on every
-  // element that references those variables — 200+ messages × 25 props).
-  const TICK_MS = 50;
+  // Full-UI RGB remains intact, but updates are quantized and adaptive.
+  // Under frame pressure we increase update spacing to prevent renderer
+  // starvation, then ramp back up when the frame budget recovers.
+  const BASE_TICK_MS = 80;
+  const MIN_TICK_MS = 70;
+  const MAX_TICK_MS = 220;
+  let adaptiveTickMs = BASE_TICK_MS;
+  let lastFrameTs = 0;
   function getStep() { return 0.8 + (speed / 100) * 3.2; }
 
   // Use rAF instead of setInterval to sync with the browser paint cycle
   // and automatically pause when the tab/window is hidden.
+  const initial = _getRgbPalette(_rgbHue, vibrancy);
+  _rgbLastHueInt = initial.h;
+  applyCustomVars(initial.palette);
+
   function tick(now) {
     _rgbRAF = requestAnimationFrame(tick);
-    if (now - _rgbLastTick < TICK_MS) return;
+    if (document.hidden) {
+      _rgbLastTick = now;
+      lastFrameTs = now;
+      return;
+    }
+
+    if (lastFrameTs > 0) {
+      const frameDt = now - lastFrameTs;
+      if (frameDt > 34) adaptiveTickMs = Math.min(MAX_TICK_MS, adaptiveTickMs + 10);
+      else if (frameDt < 20) adaptiveTickMs = Math.max(MIN_TICK_MS, adaptiveTickMs - 2);
+    }
+    lastFrameTs = now;
+
+    const elapsed = now - _rgbLastTick;
+    if (elapsed < adaptiveTickMs) return;
     _rgbLastTick = now;
-    if (document.hidden) return;   // don't burn CPU when not visible
-    _rgbHue = (_rgbHue + getStep()) % 360;
-    const vib = vibrancy / 100;
-    const palette = generateCustomPalette(_rgbHue, 0.75, 0.95, vib);
-    applyCustomVars(palette);
+
+    // Keep user-selected speed visually consistent even when throttled.
+    const speedScale = Math.min(3, elapsed / BASE_TICK_MS);
+    _rgbHue = (_rgbHue + getStep() * speedScale) % 360;
+    const next = _getRgbPalette(_rgbHue, vibrancy);
+    if (next.h === _rgbLastHueInt) return;
+    _rgbLastHueInt = next.h;
+    applyCustomVars(next.palette);
   }
   _rgbRAF = requestAnimationFrame(tick);
 
@@ -137,12 +180,19 @@ function startRgbCycle() {
   };
   startRgbCycle._setVibrancy = (v) => {
     vibrancy = v;
+    const next = _getRgbPalette(_rgbHue, vibrancy);
+    _rgbLastHueInt = next.h;
+    applyCustomVars(next.palette);
     localStorage.setItem('haven_rgb_settings', JSON.stringify({ speed, vibrancy }));
   };
 }
 
 function stopRgbCycle() {
   if (_rgbRAF) { cancelAnimationFrame(_rgbRAF); _rgbRAF = null; }
+  _rgbLastTick = 0;
+  _rgbLastHueInt = -1;
+  _rgbPaletteLut = null;
+  _rgbPaletteLutVibrancy = -1;
   document.documentElement.classList.remove('rgb-cycling');
   startRgbCycle._setSpeed = null;
   startRgbCycle._setVibrancy = null;

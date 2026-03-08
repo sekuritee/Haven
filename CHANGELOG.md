@@ -11,6 +11,31 @@ Format follows [Keep a Changelog](https://keepachangelog.com/). Haven uses [Sema
 
 ---
 
+## [2.7.0] — 2026-03-08
+
+### Added
+- **Collapsible right sidebar** — a toggle button on the right sidebar (voice/users panel) lets you collapse it to zero width for more message area space. The state persists across page reloads. The Join and Create sections in the sidebar also have their own collapsible headers now.
+- **Automatic performance diagnostics** — a silent background FPS sampler starts 30 seconds after page load and evaluates every 15 seconds. It logs warnings at two severity levels (avg FPS < 30, avg FPS < 12) with full diagnostic snapshots including heap usage, DOM count, theme state, and RGB cycling status. A manual performance HUD is available via `app._perfHUD(true)` for real-time monitoring.
+
+### Fixed
+- **Progressive UI freeze with RGB theme** — the RGB cycling theme caused a devastating progressive freeze, degrading from 60 FPS to ~1 FPS over 5 minutes. Multiple layered root causes were identified and fixed:
+  - CSS `transition: 0s` still caused Chromium/Oilpan to allocate zero-duration transition records on every tick, eventually overwhelming garbage collection. Fixed with `transition: none !important` and `animation: none !important` on all elements during RGB cycling.
+  - `applyCustomVars()` was rewriting a `<style>` element's `textContent` 20×/s, churning CSSOM nodes inside Blink. Switched to `document.documentElement.style.setProperty()` which batches into a single style invalidation.
+  - RGB cycle ran at 60 fps via `setInterval(16ms)` with ~5000 DOM nodes. Switched to `requestAnimationFrame` with adaptive throttling (70–220 ms) that skips ticks when the tab is hidden.
+  - DOM message cap lowered from 200 to 100, cutting style recalculations in half.
+  - Messages now use `content-visibility: auto` so Chromium skips style recalc for off-screen messages. Hidden modals use `content-visibility: hidden`.
+  - Canvas particle effects (matrix rain, embers, snow) capped at ~30 fps instead of uncapped 60 fps.
+  - Message hover transitions and box-shadows moved to `:hover` only instead of resting state.
+- **Reflow storm when loading messages** — loading a channel's message history appended each message individually, causing hundreds of reflows. Messages are now built in a `DocumentFragment` and inserted in a single append.
+- **Mobile message toolbar** — removed the broken double-tap and long-press methods for opening the message action toolbar on mobile. The ⋯ (three dots) button on each message is now the sole method and works reliably.
+
+### Improved
+- **App modularization** — the monolithic 17,000-line `app.js` has been split into 11 focused modules (`app-ui`, `app-messages`, `app-socket`, `app-voice`, `app-channels`, `app-admin`, `app-context`, `app-media`, `app-platform`, `app-users`, `app-utilities`), improving maintainability and load performance.
+- **Server-side caching** — static assets now use 7-day cache headers with `immutable` and `etag` for faster repeat loads.
+- **Server stability** — added a global `uncaughtException` handler to prevent the server process from crashing on unexpected errors.
+
+---
+
 ## [2.6.0] — 2026-03-06
 
 ### Added
