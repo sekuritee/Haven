@@ -901,10 +901,14 @@ _showQuickEmojiEditor(picker, msgEl, msgId) {
 },
 
 _showReactionPicker(msgEl, msgId) {
-  // Remove any existing reaction picker
+  // Remove any existing reaction picker and clear previous showing-picker class
+  document.querySelectorAll('.showing-picker').forEach(el => el.classList.remove('showing-picker'));
   document.querySelectorAll('.reaction-picker').forEach(el => el.remove());
   document.querySelectorAll('.reaction-full-picker').forEach(el => el.remove());
   document.querySelectorAll('.quick-emoji-editor').forEach(el => el.remove());
+
+  // Disable content-visibility containment so the picker isn't clipped
+  msgEl.classList.add('showing-picker');
 
   const picker = document.createElement('div');
   picker.className = 'reaction-picker';
@@ -924,6 +928,7 @@ _showReactionPicker(msgEl, msgId) {
     btn.addEventListener('click', () => {
       this.socket.emit('add-reaction', { messageId: msgId, emoji });
       picker.remove();
+      msgEl.classList.remove('showing-picker');
     });
     picker.appendChild(btn);
   });
@@ -978,6 +983,7 @@ _showReactionPicker(msgEl, msgId) {
   const close = (e) => {
     if (!picker.contains(e.target) && !e.target.closest('.reaction-full-picker') && !e.target.closest('.quick-emoji-editor')) {
       picker.remove();
+      msgEl.classList.remove('showing-picker');
       document.querySelectorAll('.reaction-full-picker').forEach(el => el.remove());
       document.removeEventListener('click', close);
     }
@@ -1034,6 +1040,7 @@ _showFullReactionPicker(msgEl, msgId, quickPicker) {
           this.socket.emit('add-reaction', { messageId: msgId, emoji });
           panel.remove();
           quickPicker.remove();
+          msgEl.classList.remove('showing-picker');
         });
         row.appendChild(btn);
       });
@@ -1061,6 +1068,7 @@ _showFullReactionPicker(msgEl, msgId, quickPicker) {
             this.socket.emit('add-reaction', { messageId: msgId, emoji: `:${ce.name}:` });
             panel.remove();
             quickPicker.remove();
+            msgEl.classList.remove('showing-picker');
           });
           row.appendChild(btn);
         });

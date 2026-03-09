@@ -11,6 +11,24 @@ Format follows [Keep a Changelog](https://keepachangelog.com/). Haven uses [Sema
 
 ---
 
+## [2.7.1] — 2026-03-09
+
+### Added
+- **Media toggle** — new 🖼️ Media setting in the Channel Functions panel lets admins disable image, video, and file uploads per channel. Enforced server-side on both the upload endpoint and message send (admins bypass). DB migration adds `media_enabled INTEGER DEFAULT 1` with a safe no-op on existing installs.
+- **Channel Functions tooltips** — all seven rows in the Channel Functions panel now have descriptive `title` tooltip text explaining each setting.
+
+### Fixed
+- **Voice user limit permanently stuck at ∞** — a missing `const badge` declaration after a prior refactor caused the voice-limit row handler to silently crash, leaving the limit permanently at "unlimited". Fixed.
+- **Text-only channels allow voice join** — all four voice-join entry points (header button, mobile button, channel double-click, and `_joinVoice()` itself) now check for `channel_type === 'text'` and block the join. Previously the guard was missing from all four paths.
+- **Streams/music not restored when disabling text-only** — toggling a channel out of text-only mode now restores `streams_enabled` and `music_enabled` to 1 on both the server and the client panel.
+- **Channel Functions menu cut off near bottom of screen** — the context menu's position clamp now re-runs after the Channel Functions panel expands, preventing it from being hidden off-screen when the channel is near the bottom of the sidebar.
+
+### Improved
+- **Channel Functions disabled-row style** — disabled cfn-rows now render their label with strikethrough text and reduced opacity, making it immediately clear when a feature is turned off.
+- **Voice panel buttons respect channel settings** — screen share, camera, and listen-together buttons are greyed (disabled, grayscale, not-allowed cursor) on voice join when the channel has those features turned off. They are re-enabled on leave to not bleed into other channels.
+
+---
+
 ## [2.7.0] — 2026-03-08
 
 ### Added

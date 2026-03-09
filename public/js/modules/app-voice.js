@@ -4,6 +4,12 @@ export default {
 
 async _joinVoice() {
   if (!this.currentChannel) return;
+  // Block voice join in text-only channels
+  const _jvChk = this.channels.find(c => c.code === this.currentChannel);
+  if (_jvChk && _jvChk.channel_type === 'text') {
+    this._showToast('Voice is not available in text-only channels', 'error');
+    return;
+  }
   // voice.join() auto-leaves old channel if connected
   const success = await this.voice.join(this.currentChannel);
   if (success) {
@@ -11,6 +17,23 @@ async _joinVoice() {
     this._updateVoiceButtons(true);
     this._updateVoiceStatus(true);
     this._updateVoiceBar();
+    // Disable stream/music buttons if the channel has them off
+    const _jvCh = this.channels.find(c => c.code === this.currentChannel);
+    const _ssBtn = document.getElementById('screen-share-btn');
+    if (_ssBtn && _jvCh && _jvCh.streams_enabled === 0) {
+      _ssBtn.disabled = true;
+      _ssBtn.title = 'Streams are disabled in this channel';
+    }
+    const _camBtn = document.getElementById('voice-cam-btn');
+    if (_camBtn && _jvCh && _jvCh.streams_enabled === 0) {
+      _camBtn.disabled = true;
+      _camBtn.title = 'Streams are disabled in this channel';
+    }
+    const _musicBtn = document.getElementById('voice-listen-together-btn');
+    if (_musicBtn && _jvCh && _jvCh.music_enabled === 0) {
+      _musicBtn.disabled = true;
+      _musicBtn.title = 'Music is disabled in this channel';
+    }
     this._showToast('Joined voice chat', 'success');
   } else {
     this._showToast('Could not access microphone. Check permissions or use HTTPS.', 'error');
@@ -98,9 +121,13 @@ _updateVoiceButtons(inVoice) {
     document.getElementById('screen-share-btn').textContent = '🖥️';
     document.getElementById('screen-share-btn').title = 'Share Screen';
     document.getElementById('screen-share-btn').classList.remove('sharing');
+    document.getElementById('screen-share-btn').disabled = false;
     document.getElementById('voice-cam-btn').textContent = '📷';
     document.getElementById('voice-cam-btn').title = 'Camera';
     document.getElementById('voice-cam-btn').classList.remove('sharing');
+    document.getElementById('voice-cam-btn').disabled = false;
+    const _ltnBtn = document.getElementById('voice-listen-together-btn');
+    if (_ltnBtn) { _ltnBtn.disabled = false; _ltnBtn.title = 'Listen Together'; }
     document.getElementById('voice-ns-slider').value = 10;
     // Hide voice settings sub-panel
     const vsPanel = document.getElementById('voice-settings-panel');
@@ -157,6 +184,13 @@ _updateVoiceBar() {
 
 async _toggleScreenShare() {
   if (!this.voice.inVoice) return;
+
+  // Block screen share if streams are disabled in this channel
+  const _ssCh = this.channels.find(c => c.code === this.voice.currentChannel);
+  if (_ssCh && _ssCh.streams_enabled === 0) {
+    this._showToast('Streams are disabled in this channel', 'error');
+    return;
+  }
 
   if (this.voice.isScreenSharing) {
     await this.voice.stopScreenShare();

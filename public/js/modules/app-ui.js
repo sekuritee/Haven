@@ -185,19 +185,116 @@ _setupUI() {
     this._closeChannelCtxMenu();
     this._leaveVoice();
   });
-  // Toggle streams permission
-  document.querySelector('[data-action="toggle-streams"]')?.addEventListener('click', () => {
-    const code = this._ctxMenuChannel;
-    if (!code) return;
-    this._closeChannelCtxMenu();
-    this.socket.emit('toggle-channel-permission', { code, permission: 'streams' });
+  // Channel Functions panel toggle
+  document.querySelector('[data-action="channel-functions"]')?.addEventListener('click', (e) => {
+    e.stopPropagation();
+    const panel = document.getElementById('channel-functions-panel');
+    const arrow = e.currentTarget.querySelector('.cfn-arrow');
+    if (!panel) return;
+    const isHidden = panel.style.display === 'none' || panel.style.display === '';
+    panel.style.display = isHidden ? 'block' : 'none';
+    if (arrow) arrow.textContent = isHidden ? '▼' : '▶';
+    // Re-clamp menu position now that its height changed
+    const menu = this._ctxMenuEl;
+    if (menu && menu._anchorEl) {
+      requestAnimationFrame(() => {
+        const mr = menu.getBoundingClientRect();
+        const rect = menu._anchorEl.getBoundingClientRect();
+        if (mr.bottom > window.innerHeight) {
+          menu.style.top = Math.max(4, rect.top - mr.height - 4) + 'px';
+        } else {
+          const belowTop = rect.bottom + 4;
+          if (belowTop + mr.height <= window.innerHeight) menu.style.top = belowTop + 'px';
+        }
+        if (mr.right > window.innerWidth) menu.style.left = (window.innerWidth - mr.width - 8) + 'px';
+      });
+    }
   });
-  // Toggle music permission
-  document.querySelector('[data-action="toggle-music"]')?.addEventListener('click', () => {
+  // Channel Functions panel — row clicks
+  document.getElementById('channel-functions-panel')?.addEventListener('click', (e) => {
+    const row = e.target.closest('.cfn-row');
+    if (!row || row.classList.contains('cfn-disabled')) return;
+    e.stopPropagation();
+    const fn = row.dataset.fn;
     const code = this._ctxMenuChannel;
     if (!code) return;
-    this._closeChannelCtxMenu();
-    this.socket.emit('toggle-channel-permission', { code, permission: 'music' });
+    const ch = this.channels.find(c => c.code === code);
+
+    // Helper: optimistically update ch, re-render panel
+    const optimistic = (patch) => {
+      if (ch) Object.assign(ch, patch);
+      this._updateChannelFunctionsPanel(ch);
+    };
+
+    if (fn === 'streams') {
+      const newVal = ch && ch.streams_enabled === 0 ? 1 : 0;
+      optimistic({ streams_enabled: newVal });
+      this.socket.emit('toggle-channel-permission', { code, permission: 'streams' });
+    } else if (fn === 'music') {
+      const newVal = ch && ch.music_enabled === 0 ? 1 : 0;
+      optimistic({ music_enabled: newVal });
+      this.socket.emit('toggle-channel-permission', { code, permission: 'music' });
+    } else if (fn === 'media') {
+      const newVal = ch && ch.media_enabled === 0 ? 1 : 0;
+      optimistic({ media_enabled: newVal });
+      this.socket.emit('toggle-channel-permission', { code, permission: 'media' });
+    } else if (fn === 'slow-mode') {
+      const badge = row.querySelector('.cfn-badge');
+      if (!badge || badge.tagName === 'INPUT') return;
+      const current = (ch && ch.slow_mode_interval) || 0;
+      const input = document.createElement('input');
+      input.type = 'number'; input.min = '0'; input.max = '3600';
+      input.value = current; input.className = 'cfn-input';
+      input.onclick = e2 => e2.stopPropagation();
+      badge.replaceWith(input);
+      input.focus(); input.select();
+      const commit = () => {
+        const interval = parseInt(input.value);
+        if (!isNaN(interval) && interval >= 0 && interval <= 3600) {
+          optimistic({ slow_mode_interval: interval });
+          this.socket.emit('set-slow-mode', { code, interval });
+        }
+      };
+      input.addEventListener('keydown', e2 => { if (e2.key === 'Enter') { commit(); input.blur(); } });
+      input.addEventListener('blur', commit);
+    } else if (fn === 'cleanup-exempt') {
+      const newVal = ch && ch.cleanup_exempt === 1 ? 0 : 1;
+      optimistic({ cleanup_exempt: newVal });
+      this.socket.emit('toggle-cleanup-exempt', { code });
+    } else if (fn === 'text-only') {
+      const isTextOnly = ch && ch.channel_type === 'text';
+      const newType = isTextOnly ? 'standard' : 'text';
+      // Enabling text-only disables streams + music; disabling restores both to on
+      const patch = { channel_type: newType, streams_enabled: newType === 'text' ? 0 : 1, music_enabled: newType === 'text' ? 0 : 1 };
+      optimistic(patch);
+      this.socket.emit('set-channel-type', { code, type: newType });
+    } else if (fn === 'voice-only') {
+      const isVoiceOnly = ch && ch.channel_type === 'voice';
+      const newType = isVoiceOnly ? 'standard' : 'voice';
+      optimistic({ channel_type: newType });
+      this.socket.emit('set-channel-type', { code, type: newType });
+    } else if (fn === 'user-limit') {
+      // If an input is already showing, don't open another
+      if (row.querySelector('.cfn-input')) return;
+      const badge = row.querySelector('.cfn-badge');
+      if (!badge) return;
+      const current = (ch && ch.voice_user_limit) || 0;
+      const input = document.createElement('input');
+      input.type = 'number'; input.min = '2'; input.max = '99';
+      input.value = current >= 2 ? current : ''; input.placeholder = '2–99 (blank=∞)'; input.className = 'cfn-input';
+      input.onclick = e2 => e2.stopPropagation();
+      badge.replaceWith(input);
+      input.focus(); input.select();
+      const commitLimit = () => {
+        const raw = parseInt(input.value);
+        // Blank or less than 2 = unlimited (0). Valid range: 2–99.
+        const limit = (!isNaN(raw) && raw >= 2 && raw <= 99) ? raw : 0;
+        optimistic({ voice_user_limit: limit });
+        this.socket.emit('set-voice-user-limit', { code, limit });
+      };
+      input.addEventListener('keydown', e2 => { if (e2.key === 'Enter') { commitLimit(); input.blur(); } });
+      input.addEventListener('blur', commitLimit);
+    }
   });
   // Move channel up/down
   document.querySelector('[data-action="organize"]')?.addEventListener('click', () => {
@@ -398,21 +495,6 @@ _setupUI() {
       this._dmOrganizeList = null;
       this._dmOrganizeSelected = null;
       this._renderChannels();
-    }
-  });
-  // Slow mode
-  document.querySelector('[data-action="slow-mode"]')?.addEventListener('click', () => {
-    const code = this._ctxMenuChannel;
-    if (!code) return;
-    this._closeChannelCtxMenu();
-    const ch = this.channels.find(c => c.code === code);
-    const current = (ch && ch.slow_mode_interval) || 0;
-    const input = prompt('Slow mode interval in seconds (0 = off, max 3600):', current);
-    if (input !== null) {
-      const interval = parseInt(input);
-      if (!isNaN(interval)) {
-        this.socket.emit('set-slow-mode', { code, interval });
-      }
     }
   });
   // Webhooks management
@@ -862,13 +944,19 @@ _setupUI() {
   // Right sidebar collapse toggle (persisted to localStorage)
   const sidebarToggle = document.getElementById('sidebar-toggle-btn');
   const rightSidebar = document.getElementById('right-sidebar');
-  if (localStorage.getItem('haven-sidebar-collapsed') === '1') {
-    rightSidebar.classList.add('collapsed');
-    sidebarToggle.classList.add('sidebar-hidden');
+
+  function applySidebarCollapsed(collapsed) {
+    rightSidebar.classList.toggle('collapsed', collapsed);
+    sidebarToggle.classList.toggle('is-collapsed', collapsed);
+    sidebarToggle.textContent = collapsed ? '\u276E' : '\u276F'; // ❮ or ❯
   }
+
+  // Default is expanded; only collapse if explicitly saved as '1'
+  applySidebarCollapsed(localStorage.getItem('haven-sidebar-collapsed') === '1');
+
   sidebarToggle.addEventListener('click', () => {
-    const collapsed = rightSidebar.classList.toggle('collapsed');
-    sidebarToggle.classList.toggle('sidebar-hidden', collapsed);
+    const collapsed = !rightSidebar.classList.contains('collapsed');
+    applySidebarCollapsed(collapsed);
     localStorage.setItem('haven-sidebar-collapsed', collapsed ? '1' : '0');
   });
 

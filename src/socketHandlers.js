@@ -732,14 +732,16 @@ function setupSocketHandlers(io, db) {
           SELECT c.id, c.name, c.code, c.created_by, c.topic, c.is_dm,
                  c.code_visibility, c.code_mode, c.code_rotation_type, c.code_rotation_interval,
                  c.parent_channel_id, c.position, c.is_private,
-                 c.streams_enabled, c.music_enabled, c.slow_mode_interval, c.category, c.sort_alphabetical
+                 c.streams_enabled, c.music_enabled, c.media_enabled, c.slow_mode_interval, c.category, c.sort_alphabetical,
+                 c.cleanup_exempt, c.channel_type, c.voice_user_limit
           FROM channels c
           WHERE c.is_dm = 0
           UNION
           SELECT c.id, c.name, c.code, c.created_by, c.topic, c.is_dm,
                  c.code_visibility, c.code_mode, c.code_rotation_type, c.code_rotation_interval,
                  c.parent_channel_id, c.position, c.is_private,
-                 c.streams_enabled, c.music_enabled, c.slow_mode_interval, c.category, c.sort_alphabetical
+                 c.streams_enabled, c.music_enabled, c.media_enabled, c.slow_mode_interval, c.category, c.sort_alphabetical,
+                 c.cleanup_exempt, c.channel_type, c.voice_user_limit
           FROM channels c
           JOIN channel_members cm ON c.id = cm.channel_id
           WHERE cm.user_id = ? AND c.is_dm = 1
@@ -755,7 +757,8 @@ function setupSocketHandlers(io, db) {
           SELECT c.id, c.name, c.code, c.created_by, c.topic, c.is_dm,
                  c.code_visibility, c.code_mode, c.code_rotation_type, c.code_rotation_interval,
                  c.parent_channel_id, c.position, c.is_private,
-                 c.streams_enabled, c.music_enabled, c.slow_mode_interval, c.category, c.sort_alphabetical
+                 c.streams_enabled, c.music_enabled, c.media_enabled, c.slow_mode_interval, c.category, c.sort_alphabetical,
+                 c.cleanup_exempt, c.channel_type, c.voice_user_limit
           FROM channels c
           JOIN channel_members cm ON c.id = cm.channel_id
           WHERE cm.user_id = ?
@@ -1326,13 +1329,26 @@ function setupSocketHandlers(io, db) {
         return socket.emit('error-msg', `You are muted for ${remaining} more minute${remaining !== 1 ? 's' : ''}`);
       }
 
-      const channel = db.prepare('SELECT id, name, slow_mode_interval FROM channels WHERE code = ?').get(code);
+      const channel = db.prepare('SELECT id, name, slow_mode_interval, channel_type, media_enabled FROM channels WHERE code = ?').get(code);
       if (!channel) return;
 
       const member = db.prepare(
         'SELECT 1 FROM channel_members WHERE channel_id = ? AND user_id = ?'
       ).get(channel.id, socket.user.id);
       if (!member) return socket.emit('error-msg', 'Not a member of this channel');
+
+      // Block text messages in voice-only channels
+      if (channel.channel_type === 'voice') {
+        return socket.emit('error-msg', 'This is a voice-only channel — text messages are disabled');
+      }
+
+      // Block media uploads if media is disabled in this channel
+      if (channel.media_enabled === 0 && !socket.user.isAdmin) {
+        const isMediaContent = /^\/uploads\b/i.test(content.trim()) || /^\[file:[^\]]+\]\(/i.test(content.trim());
+        if (isMediaContent) {
+          return socket.emit('error-msg', 'Media uploads are disabled in this channel');
+        }
+      }
 
       // ── Slow mode check (admins and mods bypass) ──────
       if (channel.slow_mode_interval > 0 && !socket.user.isAdmin && getUserEffectiveLevel(socket.user.id, channel.id) < 25) {
@@ -1481,6 +1497,18 @@ function setupSocketHandlers(io, db) {
         'SELECT 1 FROM channel_members WHERE channel_id = ? AND user_id = ?'
       ).get(vch.id, socket.user.id);
       if (!vMember) return socket.emit('error-msg', 'Not a member of this channel');
+
+      // Check channel type and voice user limit
+      const vchSettings = db.prepare('SELECT channel_type, voice_user_limit FROM channels WHERE code = ?').get(code);
+      if (vchSettings && vchSettings.channel_type === 'text') {
+        return socket.emit('error-msg', 'This is a text-only channel — voice is disabled');
+      }
+      if (vchSettings && vchSettings.voice_user_limit > 0) {
+        const currentCount = voiceUsers.has(code) ? voiceUsers.get(code).size : 0;
+        if (currentCount >= vchSettings.voice_user_limit) {
+          return socket.emit('error-msg', `Voice is full (${currentCount}/${vchSettings.voice_user_limit})`);
+        }
+      }
 
       // Leave any previous voice room first
       for (const [prevCode, room] of voiceUsers) {
@@ -5450,19 +5478,21 @@ function setupSocketHandlers(io, db) {
       if (!code || !/^[a-f0-9]{8}$/i.test(code)) return;
 
       const permission = typeof data.permission === 'string' ? data.permission.trim() : '';
-      const validPerms = ['streams', 'music'];
+      const validPerms = ['streams', 'music', 'media'];
       if (!validPerms.includes(permission)) return socket.emit('error-msg', 'Invalid permission');
 
       const channel = db.prepare('SELECT * FROM channels WHERE code = ? AND is_dm = 0').get(code);
       if (!channel) return socket.emit('error-msg', 'Channel not found');
 
-      const colName = permission === 'streams' ? 'streams_enabled' : 'music_enabled';
+      const colMap = { streams: 'streams_enabled', music: 'music_enabled', media: 'media_enabled' };
+      const colName = colMap[permission];
       const current = channel[colName];
       const newVal = current ? 0 : 1;
 
       try {
         db.prepare(`UPDATE channels SET ${colName} = ? WHERE id = ?`).run(newVal, channel.id);
-        const label = permission === 'streams' ? 'Screen sharing' : 'Music sharing';
+        const labelMap = { streams: 'Screen sharing', music: 'Music sharing', media: 'Media uploads' };
+        const label = labelMap[permission];
         const state = newVal ? 'enabled' : 'disabled';
 
         // Broadcast updated channel list so all clients see the new state
@@ -5473,10 +5503,33 @@ function setupSocketHandlers(io, db) {
           code, permission, enabled: !!newVal
         });
 
-        socket.emit('error-msg', `${label} ${state} for this channel`);
+        socket.emit('toast', { message: `${label} ${state} for this channel`, type: 'success' });
       } catch (err) {
         console.error('Toggle permission error:', err);
         socket.emit('error-msg', 'Failed to toggle permission');
+      }
+    });
+
+    // ── Toggle cleanup exemption for a channel ──────────────
+    socket.on('toggle-cleanup-exempt', (data) => {
+      if (!data || typeof data !== 'object') return;
+      if (!socket.user.isAdmin) return socket.emit('error-msg', 'Only admins can change cleanup exemptions');
+
+      const code = typeof data.code === 'string' ? data.code.trim() : '';
+      if (!code || !/^[a-f0-9]{8}$/i.test(code)) return;
+
+      const channel = db.prepare('SELECT * FROM channels WHERE code = ? AND is_dm = 0').get(code);
+      if (!channel) return socket.emit('error-msg', 'Channel not found');
+
+      const newVal = channel.cleanup_exempt ? 0 : 1;
+
+      try {
+        db.prepare('UPDATE channels SET cleanup_exempt = ? WHERE id = ?').run(newVal, channel.id);
+        broadcastChannelLists();
+        socket.emit('toast', { message: newVal ? '🛡️ Channel exempt from auto-cleanup' : 'Cleanup protection removed', type: 'success' });
+      } catch (err) {
+        console.error('Toggle cleanup exempt error:', err);
+        socket.emit('error-msg', 'Failed to toggle cleanup exemption');
       }
     });
 
@@ -5500,7 +5553,7 @@ function setupSocketHandlers(io, db) {
         db.prepare('UPDATE channels SET slow_mode_interval = ? WHERE id = ?').run(interval, channel.id);
         broadcastChannelLists();
         io.to(`channel:${code}`).emit('slow-mode-updated', { code, interval });
-        socket.emit('error-msg', interval > 0 ? `Slow mode set to ${interval}s` : 'Slow mode disabled');
+        socket.emit('toast', { message: interval > 0 ? `Slow mode set to ${interval}s` : 'Slow mode disabled', type: 'success' });
       } catch (err) {
         console.error('Set slow mode error:', err);
         socket.emit('error-msg', 'Failed to set slow mode');
@@ -5530,6 +5583,61 @@ function setupSocketHandlers(io, db) {
       } catch (err) {
         console.error('Set sort mode error:', err);
         socket.emit('error-msg', 'Failed to update sort setting');
+      }
+    });
+
+    // ── Set channel type (standard / text-only / voice-only) ───
+    socket.on('set-channel-type', (data) => {
+      if (!data || typeof data !== 'object') return;
+      if (!socket.user.isAdmin && !userHasPermission(socket.user.id, 'create_channel')) {
+        return socket.emit('error-msg', 'You don\'t have permission to change channel type');
+      }
+      const code = typeof data.code === 'string' ? data.code.trim() : '';
+      if (!code || !/^[a-f0-9]{8}$/i.test(code)) return;
+      const type = typeof data.type === 'string' ? data.type : '';
+      if (!['standard', 'text', 'voice'].includes(type)) return socket.emit('error-msg', 'Invalid channel type');
+      const channel = db.prepare('SELECT id FROM channels WHERE code = ? AND is_dm = 0').get(code);
+      if (!channel) return socket.emit('error-msg', 'Channel not found');
+      try {
+        // Text-only: automatically disable streams and music (no voice = no screen share or music)
+        if (type === 'text') {
+          db.prepare('UPDATE channels SET channel_type = ?, streams_enabled = 0, music_enabled = 0 WHERE id = ?').run(type, channel.id);
+        } else {
+          // Switching away from any type: restore streams and music to on
+          db.prepare('UPDATE channels SET channel_type = ?, streams_enabled = 1, music_enabled = 1 WHERE id = ?').run(type, channel.id);
+        }
+        broadcastChannelLists();
+        const labels = { standard: '⚡ Channel type reset to standard', text: '💬 Channel set to text-only', voice: '🎤 Channel set to voice-only' };
+        socket.emit('toast', { message: labels[type], type: 'success' });
+      } catch (err) {
+        console.error('Set channel type error:', err);
+        socket.emit('error-msg', 'Failed to set channel type');
+      }
+    });
+
+    // ── Set voice user limit ────────────────────────────────────
+    socket.on('set-voice-user-limit', (data) => {
+      if (!data || typeof data !== 'object') return;
+      if (!socket.user.isAdmin && !userHasPermission(socket.user.id, 'create_channel')) {
+        return socket.emit('error-msg', 'You don\'t have permission to change the voice user limit');
+      }
+      const code = typeof data.code === 'string' ? data.code.trim() : '';
+      if (!code || !/^[a-f0-9]{8}$/i.test(code)) return;
+      const limit = typeof data.limit === 'number' ? data.limit : parseInt(data.limit);
+      if (isNaN(limit) || limit < 0 || limit > 99) {
+        return socket.emit('error-msg', 'Voice user limit must be 0 (unlimited) or 2–99');
+      }
+      // Normalize: 1 is not a useful limit; treat it as unlimited
+      const normalizedLimit = (limit === 1) ? 0 : limit;
+      const channel = db.prepare('SELECT id FROM channels WHERE code = ? AND is_dm = 0').get(code);
+      if (!channel) return socket.emit('error-msg', 'Channel not found');
+      try {
+        db.prepare('UPDATE channels SET voice_user_limit = ? WHERE id = ?').run(normalizedLimit, channel.id);
+        broadcastChannelLists();
+        socket.emit('toast', { message: normalizedLimit >= 2 ? `👥 Voice limit set to ${normalizedLimit}` : '👥 Voice user limit removed', type: 'success' });
+      } catch (err) {
+        console.error('Set voice user limit error:', err);
+        socket.emit('error-msg', 'Failed to set voice user limit');
       }
     });
 

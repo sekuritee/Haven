@@ -39,20 +39,25 @@ async switchChannel(code) {
   if (this.voice && this.voice.inVoice) {
     this._updateVoiceButtons(true);
   } else {
-    // Show just the join button (not the indicator)
-    document.getElementById('voice-join-btn').style.display = 'inline-flex';
+    // Show just the join button (not the indicator), but hide it for text-only channels
+    const _scJoinBtn = document.getElementById('voice-join-btn');
+    if (_scJoinBtn) _scJoinBtn.style.display = channel && channel.channel_type === 'text' ? 'none' : 'inline-flex';
     const indic = document.getElementById('voice-active-indicator');
     if (indic) indic.style.display = 'none';
     const vp = document.getElementById('voice-panel');
     if (vp) vp.style.display = 'none';
     const mobileJoin = document.getElementById('voice-join-mobile');
-    if (mobileJoin) mobileJoin.style.display = '';
+    if (mobileJoin) mobileJoin.style.display = channel && channel.channel_type === 'text' ? 'none' : '';
   }
   document.getElementById('search-toggle-btn').style.display = '';
   document.getElementById('pinned-toggle-btn').style.display = '';
 
   // Show/hide topic bar
   this._updateTopicBar(channel?.topic || '');
+
+  // Show/hide message input for voice-only channels
+  const msgInputArea = document.getElementById('message-input-area');
+  if (msgInputArea) msgInputArea.style.display = channel && channel.channel_type === 'voice' ? 'none' : '';
 
   const messagesEl = document.getElementById('messages');
   messagesEl.innerHTML = '';
@@ -184,6 +189,11 @@ _openChannelCtxMenu(code, btnEl) {
   menu.querySelectorAll('.mod-only').forEach(el => {
     el.style.display = isMod ? '' : 'none';
   });
+  // Always reset the Channel Functions panel to closed when the menu opens
+  const cfnPanel = document.getElementById('channel-functions-panel');
+  if (cfnPanel) cfnPanel.style.display = 'none';
+  const cfnArrow = menu.querySelector('[data-action="channel-functions"] .cfn-arrow');
+  if (cfnArrow) cfnArrow.textContent = '▶';
   // Hide "Create Sub-channel" if this is already a sub-channel
   const ch = this.channels.find(c => c.code === code);
   const createSubBtn = menu.querySelector('[data-action="create-sub-channel"]');
@@ -211,29 +221,8 @@ _openChannelCtxMenu(code, btnEl) {
   if (promoteBtn && ch) {
     promoteBtn.style.display = (canManageChannels && ch.parent_channel_id) ? '' : 'none';
   }
-  // Update toggle indicators for streams/music
-  const streamsBtn = menu.querySelector('[data-action="toggle-streams"]');
-  const musicBtn = menu.querySelector('[data-action="toggle-music"]');
-  if (streamsBtn && ch) {
-    const on = ch.streams_enabled !== 0;
-    streamsBtn.innerHTML = on
-      ? '🖥️ Streams <span class="ctx-indicator ctx-on">✅ ON</span>'
-      : '🖥️ Streams <span class="ctx-indicator ctx-off">❌ OFF</span>';
-  }
-  if (musicBtn && ch) {
-    const on = ch.music_enabled !== 0;
-    musicBtn.innerHTML = on
-      ? '🎵 Music <span class="ctx-indicator ctx-on">✅ ON</span>'
-      : '🎵 Music <span class="ctx-indicator ctx-off">❌ OFF</span>';
-  }
-  // Update slow mode indicator
-  const slowBtn = menu.querySelector('[data-action="slow-mode"]');
-  if (slowBtn && ch) {
-    const interval = ch.slow_mode_interval || 0;
-    slowBtn.innerHTML = interval > 0
-      ? `🐢 Slow Mode <span class="ctx-indicator ctx-on">${interval}s</span>`
-      : '🐢 Slow Mode <span class="ctx-indicator ctx-off">OFF</span>';
-  }
+  // Update Channel Functions panel with current channel values
+  if (canManageChannels) this._updateChannelFunctionsPanel(ch);
   // Update mute label
   const muted = JSON.parse(localStorage.getItem('haven_muted_channels') || '[]');
   const muteBtn = menu.querySelector('[data-action="mute"]');
@@ -243,10 +232,12 @@ _openChannelCtxMenu(code, btnEl) {
   const leaveVoiceBtn = menu.querySelector('[data-action="leave-voice"]');
   const inVoice = this.voice && this.voice.inVoice;
   const inThisChannel = inVoice && this.voice.currentChannel === code;
-  if (joinVoiceBtn) joinVoiceBtn.style.display = inThisChannel ? 'none' : '';
+  const isTextOnly = ch && ch.channel_type === 'text';
+  if (joinVoiceBtn) joinVoiceBtn.style.display = (inThisChannel || isTextOnly) ? 'none' : '';
   if (leaveVoiceBtn) leaveVoiceBtn.style.display = inVoice ? '' : 'none';
   // Position near the button
   const rect = btnEl.getBoundingClientRect();
+  menu._anchorEl = btnEl;
   menu.style.display = 'block';
   menu.style.top  = rect.bottom + 4 + 'px';
   menu.style.left = rect.left + 'px';
@@ -256,6 +247,55 @@ _openChannelCtxMenu(code, btnEl) {
     if (mr.right > window.innerWidth) menu.style.left = (window.innerWidth - mr.width - 8) + 'px';
     if (mr.bottom > window.innerHeight) menu.style.top = (rect.top - mr.height - 4) + 'px';
   });
+},
+
+_setCfnBadge(fn, isOn, text) {
+  const row = document.querySelector(`.cfn-row[data-fn="${fn}"]`);
+  if (!row) return;
+  let badge = row.querySelector('.cfn-badge');
+  if (!badge) {
+    // Badge was replaced by an input — restore it
+    const input = row.querySelector('.cfn-input');
+    badge = document.createElement('span');
+    badge.className = 'cfn-badge';
+    if (input) input.replaceWith(badge);
+    else return;
+  }
+  badge.textContent = text;
+  badge.className = 'cfn-badge ' + (isOn ? 'cfn-on' : 'cfn-off');
+},
+
+_updateChannelFunctionsPanel(ch) {
+  if (!ch) return;
+  // Basic toggles
+  this._setCfnBadge('streams', ch.streams_enabled !== 0, ch.streams_enabled !== 0 ? 'ON' : 'OFF');
+  this._setCfnBadge('music', ch.music_enabled !== 0, ch.music_enabled !== 0 ? 'ON' : 'OFF');
+  this._setCfnBadge('media', ch.media_enabled !== 0, ch.media_enabled !== 0 ? 'ON' : 'OFF');
+  const interval = ch.slow_mode_interval || 0;
+  this._setCfnBadge('slow-mode', interval > 0, interval > 0 ? `${interval}s` : 'OFF');
+  this._setCfnBadge('cleanup-exempt', ch.cleanup_exempt === 1, ch.cleanup_exempt === 1 ? 'ON' : 'OFF');
+  // Channel type
+  const isTextOnly = ch.channel_type === 'text';
+  const isVoiceOnly = ch.channel_type === 'voice';
+  this._setCfnBadge('text-only', isTextOnly, isTextOnly ? 'ON' : 'OFF');
+  this._setCfnBadge('voice-only', isVoiceOnly, isVoiceOnly ? 'ON' : 'OFF');
+  // Streams greyed when text-only (no voice = no screen share)
+  const streamsRow = document.querySelector('.cfn-row[data-fn="streams"]');
+  if (streamsRow) streamsRow.classList.toggle('cfn-disabled', isTextOnly);
+  // Music greyed when text-only (music requires voice)
+  const musicRow = document.querySelector('.cfn-row[data-fn="music"]');
+  if (musicRow) musicRow.classList.toggle('cfn-disabled', isTextOnly);
+  // Text-only and voice-only are mutually exclusive
+  const voiceOnlyRow = document.querySelector('.cfn-row[data-fn="voice-only"]');
+  const textOnlyRow = document.querySelector('.cfn-row[data-fn="text-only"]');
+  if (voiceOnlyRow) voiceOnlyRow.classList.toggle('cfn-disabled', isTextOnly);
+  if (textOnlyRow) textOnlyRow.classList.toggle('cfn-disabled', isVoiceOnly);
+  // Voice Limit (0 = unlimited = ∞; minimum meaningful limit is 2)
+  const limit = ch.voice_user_limit || 0;
+  this._setCfnBadge('user-limit', limit >= 2, limit >= 2 ? String(limit) : '∞');
+  // User limit greyed for text-only (no voice = no limit needed)
+  const userLimitRow = document.querySelector('.cfn-row[data-fn="user-limit"]');
+  if (userLimitRow) userLimitRow.classList.toggle('cfn-disabled', isTextOnly);
 },
 
 _closeChannelCtxMenu() {
@@ -1044,6 +1084,7 @@ _renderChannels() {
       if (ch.streams_enabled === 0) badges.push('<span title="Streams disabled" style="opacity:0.4;font-size:0.65rem">🖥️</span>');
       if (ch.music_enabled === 0) badges.push('<span title="Music disabled" style="opacity:0.4;font-size:0.65rem">🎵</span>');
       if (ch.slow_mode_interval > 0) badges.push('<span title="Slow mode: ' + ch.slow_mode_interval + 's" style="opacity:0.5;font-size:0.65rem">🐢</span>');
+      if (ch.cleanup_exempt === 1) badges.push('<span title="Exempt from auto-cleanup" style="opacity:0.5;font-size:0.65rem">🛡️</span>');
       if (badges.length) indicators = `<span class="channel-indicators" style="margin-left:auto;display:flex;gap:2px;flex-shrink:0">${badges.join('')}</span>`;
     }
 
@@ -1077,8 +1118,10 @@ _renderChannels() {
     }
 
     el.addEventListener('click', () => this.switchChannel(ch.code));
-    // Double-click to join voice in the channel
+    // Double-click to join voice in the channel (blocked for text-only)
     el.addEventListener('dblclick', () => {
+      const _dblCh = this.channels.find(c => c.code === ch.code);
+      if (_dblCh && _dblCh.channel_type === 'text') return;
       this.switchChannel(ch.code);
       setTimeout(() => this._joinVoice(), 300);
     });

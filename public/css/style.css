@@ -3712,6 +3712,78 @@ html.rgb-cycling *::after {
   padding-left: 10px;
   white-space: nowrap;
 }
+
+/* ── Channel Functions inline panel ── */
+.channel-functions-panel {
+  margin: 2px 4px 4px;
+  background: var(--bg-tertiary);
+  border-radius: 6px;
+  padding: 3px 0;
+  border: 1px solid var(--border);
+}
+.cfn-divider {
+  border-top: 1px solid var(--border);
+  margin: 3px 8px;
+}
+.cfn-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 5px 10px;
+  border-radius: 4px;
+  cursor: pointer;
+  user-select: none;
+  transition: background 0.1s;
+}
+.cfn-row:hover { background: var(--bg-hover); }
+.cfn-row.cfn-disabled {
+  opacity: 0.38;
+  cursor: not-allowed;
+  pointer-events: none;
+}
+.cfn-row.cfn-disabled .cfn-label {
+  text-decoration: line-through;
+  text-decoration-color: rgba(255,255,255,0.45);
+}
+.cfn-label {
+  font-size: 12px;
+  color: var(--text-secondary);
+}
+.cfn-badge {
+  font-size: 10px;
+  font-weight: 700;
+  padding: 2px 7px;
+  border-radius: 3px;
+  min-width: 30px;
+  text-align: center;
+  letter-spacing: 0.3px;
+}
+.cfn-badge.cfn-on {
+  background: rgba(87, 242, 135, 0.15);
+  color: #57f287;
+}
+.cfn-badge.cfn-off {
+  background: rgba(255,255,255,0.06);
+  color: var(--text-muted);
+}
+.cfn-input {
+  width: 54px;
+  background: var(--bg-primary);
+  border: 1px solid var(--accent, var(--border));
+  border-radius: 3px;
+  color: var(--text-primary);
+  font-size: 11px;
+  padding: 2px 5px;
+  text-align: right;
+  outline: none;
+}
+/* Arrow indicator on the Channel Functions button */
+.channel-ctx-item [class="cfn-arrow"] {
+  margin-left: auto;
+  font-size: 9px;
+  color: var(--text-muted);
+}
+
 .channel-ctx-sep {
   border: none;
   border-top: 1px solid var(--border);
@@ -4321,9 +4393,31 @@ html.rgb-cycling *::after {
   pointer-events: none;
 }
 
-/* Dim the toggle button when sidebar is hidden */
-#sidebar-toggle-btn.sidebar-hidden {
-  opacity: 0.5;
+/* Sidebar collapse arrow — fixed to the right edge of the viewport.
+   Always accessible regardless of sidebar state or scroll position. */
+.sidebar-collapse-btn {
+  position: fixed;
+  right: 0;
+  top: 56px;
+  width: 20px;
+  height: 36px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 11px;
+  background: var(--bg-secondary);
+  border: 1px solid var(--border);
+  border-right: none;
+  border-radius: 6px 0 0 6px;
+  color: var(--text-muted);
+  cursor: pointer;
+  padding: 0;
+  z-index: 100;
+  transition: color 0.15s, background 0.15s;
+}
+.sidebar-collapse-btn:hover {
+  color: var(--text-primary);
+  background: var(--bg-tertiary);
 }
 
 /* Voice section — pinned at top, shrinks if needed */
@@ -6399,6 +6493,11 @@ html.rgb-cycling *::after {
 
 .message, .message-compact { position: relative; }
 
+/* Override content-visibility:auto on messages that have a reaction picker open.
+   paint-containment from content-visibility clips absolutely-positioned children
+   (the picker sits above the message at top:-44px).                              */
+.message.showing-picker { content-visibility: visible; contain: none; }
+
 .msg-toolbar {
   position: absolute;
   top: -6px;
@@ -8421,6 +8520,7 @@ html.rgb-cycling *::after {
 .mobile-settings-btn { display: none; }
 @media (max-width: 900px) {
   .right-sidebar { display: none; }
+  .sidebar-collapse-btn { display: none; }
   .mobile-users-btn { display: flex; }
   .mobile-settings-btn { display: flex; }
   .sidebar-settings-panel { display: none !important; }
@@ -10930,6 +11030,8 @@ ul.chat-list { list-style-type: disc; }
   line-height: 1;
 }
 .voice-panel-btn:hover { background: var(--bg-hover); color: var(--text-primary); border-color: var(--accent); }
+.voice-panel-btn:disabled { opacity: 0.32; cursor: not-allowed; filter: grayscale(0.6); }
+.voice-panel-btn:disabled:hover { background: transparent; border-color: var(--border); color: var(--text-muted); }
 .voice-panel-btn.muted { background: var(--warning); color: #1a1a2e; border-color: var(--warning); position: relative; }
 .voice-panel-btn.muted::after {
   content: '';

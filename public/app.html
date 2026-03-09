@@ -271,7 +271,6 @@
             <span class="header-actions-divider"></span>
             <button id="search-toggle-btn" class="icon-btn small" title="Search messages (Ctrl+F)">🔍</button>
             <button id="pinned-toggle-btn" class="icon-btn small" title="Pinned messages">📌</button>
-            <button id="sidebar-toggle-btn" class="icon-btn small" title="Toggle members panel">👥</button>
             <div class="e2e-menu-wrapper" style="display:none" id="e2e-menu-wrapper">
               <button id="e2e-menu-btn" class="icon-btn small" title="Encryption options">🔐</button>
               <div class="e2e-dropdown" id="e2e-dropdown" style="display:none">
@@ -434,7 +433,7 @@
             <button class="reply-bar-close" id="reply-close-btn" title="Cancel reply">&times;</button>
           </div>
           <div id="image-queue-bar" class="image-queue-bar" style="display:none"></div>
-          <div class="message-input-area">
+          <div id="message-input-area" class="message-input-area">
             <div class="input-actions-box">
               <button id="upload-btn" class="btn-upload" title="Upload File">
                 <svg class="upload-icon-default" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
@@ -471,6 +470,9 @@
           <input type="file" id="file-input" style="display:none">
         </div>
       </main>
+
+      <!-- Sidebar collapse arrow — fixed to the right edge of the viewport -->
+      <button id="sidebar-toggle-btn" class="sidebar-collapse-btn" title="Toggle members panel" aria-label="Toggle members panel">&#x276F;</button>
 
       <!-- ─── Right Sidebar ───────────────────────────── -->
       <aside class="right-sidebar" id="right-sidebar">
@@ -1878,9 +1880,42 @@
     <button class="channel-ctx-item admin-only" data-action="organize" style="display:none">📋 Organize</button>
     <button class="channel-ctx-item admin-only" data-action="move-to-parent" style="display:none">📦 Move to…</button>
     <button class="channel-ctx-item admin-only" data-action="promote-channel" style="display:none">⬆️ Promote to Channel</button>
-    <button class="channel-ctx-item admin-only" data-action="toggle-streams">🖥️ Toggle Streams</button>
-    <button class="channel-ctx-item admin-only" data-action="toggle-music">🎵 Toggle Music</button>
-    <button class="channel-ctx-item admin-only" data-action="slow-mode">🐢 Slow Mode</button>
+    <button class="channel-ctx-item admin-only" data-action="channel-functions">⚙️ Channel Functions <span class="cfn-arrow">▶</span></button>
+    <div id="channel-functions-panel" class="channel-functions-panel" style="display:none">
+      <div class="cfn-row" data-fn="streams" title="Allow screen sharing and camera in this channel">
+        <span class="cfn-label">🖥️ Streams</span>
+        <span class="cfn-badge cfn-on">ON</span>
+      </div>
+      <div class="cfn-row" data-fn="music" title="Allow Listen Together / music playback in this channel">
+        <span class="cfn-label">🎵 Music</span>
+        <span class="cfn-badge cfn-on">ON</span>
+      </div>
+      <div class="cfn-row" data-fn="media" title="Allow image, video, and file uploads in this channel">
+        <span class="cfn-label">🖼️ Media</span>
+        <span class="cfn-badge cfn-on">ON</span>
+      </div>
+      <div class="cfn-row" data-fn="slow-mode" title="Require a cooldown between messages (0 = off)">
+        <span class="cfn-label">🐢 Slow Mode</span>
+        <span class="cfn-badge cfn-off">OFF</span>
+      </div>
+      <div class="cfn-row" data-fn="cleanup-exempt" title="Protect this channel from automatic message cleanup">
+        <span class="cfn-label">🛡️ Cleanup Guard</span>
+        <span class="cfn-badge cfn-off">OFF</span>
+      </div>
+      <div class="cfn-divider"></div>
+      <div class="cfn-row" data-fn="text-only" title="Text messages only — voice, streams, and music are disabled">
+        <span class="cfn-label">💬 Text Only</span>
+        <span class="cfn-badge cfn-off">OFF</span>
+      </div>
+      <div class="cfn-row" data-fn="voice-only" title="Voice only — text chat is disabled for regular users">
+        <span class="cfn-label">🎤 Voice Only</span>
+        <span class="cfn-badge cfn-off">OFF</span>
+      </div>
+      <div class="cfn-row" data-fn="user-limit" title="Limit simultaneous voice users (click to set; blank = unlimited)">
+        <span class="cfn-label">👥 Voice Limit</span>
+        <span class="cfn-badge cfn-off">∞</span>
+      </div>
+    </div>
     <button class="channel-ctx-item admin-only" data-action="channel-roles">👑 Roles</button>
     <button class="channel-ctx-item admin-only" data-action="webhooks">🤖 Webhooks</button>
     <hr class="channel-ctx-sep admin-only">
