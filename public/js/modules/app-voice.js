@@ -292,6 +292,23 @@ _handleWebcamStream(userId, stream) {
       });
       tile.appendChild(popoutBtn);
 
+      // Fullscreen button
+      const fsBtnWC = document.createElement('button');
+      fsBtnWC.className = 'stream-fullscreen-btn';
+      fsBtnWC.title = 'Fullscreen';
+      fsBtnWC.textContent = '⛶';
+      fsBtnWC.addEventListener('click', (e) => {
+        e.stopPropagation();
+        const vid = tile.querySelector('video');
+        const target = vid || tile;
+        if (document.fullscreenElement) {
+          document.exitFullscreen().catch(() => {});
+        } else {
+          (target.requestFullscreen || target.webkitRequestFullscreen).call(target).catch(() => {});
+        }
+      });
+      tile.appendChild(fsBtnWC);
+
       // Minimize button — collapses tile but keeps in grid
       const minBtn = document.createElement('button');
       minBtn.className = 'stream-minimize-btn';
@@ -564,6 +581,7 @@ _popOutWebcamOverlay(tile, userId) {
       <span class="music-pip-label">📷 ${who}</span>
       <span class="music-pip-vol-icon" title="Window opacity">👁</span>
       <input type="range" class="music-pip-vol pip-opacity-slider" min="20" max="100" value="${savedOpacity}">
+      <button class="music-pip-btn stream-pip-fullscreen" title="Fullscreen">⤢</button>
       <button class="music-pip-btn stream-pip-close" title="Close">✕</button>
     </div>
   `;
@@ -598,6 +616,16 @@ _popOutWebcamOverlay(tile, userId) {
 
   pip.querySelector('.stream-pip-popin').addEventListener('click', popIn);
   pip.querySelector('.stream-pip-close').addEventListener('click', closePip);
+  pip.querySelector('.stream-pip-fullscreen').addEventListener('click', (e) => {
+    e.stopPropagation();
+    const vid = pip.querySelector('video');
+    const target = vid || pip;
+    if (document.fullscreenElement) {
+      document.exitFullscreen().catch(() => {});
+    } else {
+      (target.requestFullscreen || target.webkitRequestFullscreen).call(target).catch(() => {});
+    }
+  });
 
   pip.querySelector('.pip-opacity-slider').addEventListener('input', (e) => {
     const val = parseInt(e.target.value);
@@ -738,6 +766,23 @@ _handleScreenStream(userId, stream, { force = false } = {}) {
         this._popOutStream(tile, userId);
       });
       tile.appendChild(popoutBtn);
+
+      // Fullscreen button — makes the video element fill the screen
+      const fsBtn = document.createElement('button');
+      fsBtn.className = 'stream-fullscreen-btn';
+      fsBtn.title = 'Fullscreen';
+      fsBtn.textContent = '⛶';
+      fsBtn.addEventListener('click', (e) => {
+        e.stopPropagation();
+        const vid = tile.querySelector('video');
+        const target = vid || tile;
+        if (document.fullscreenElement) {
+          document.exitFullscreen().catch(() => {});
+        } else {
+          (target.requestFullscreen || target.webkitRequestFullscreen).call(target).catch(() => {});
+        }
+      });
+      tile.appendChild(fsBtn);
 
       // Minimize button — hides tile but KEEPS audio playing
       const minBtn = document.createElement('button');
@@ -1374,6 +1419,7 @@ _popOutStreamWindow(tile, userId) {
       <span class="music-pip-label">🖥️ ${who}</span>
       <span class="music-pip-vol-icon stream-pip-opacity-icon" title="Window opacity">👁</span>
       <input type="range" class="music-pip-vol pip-opacity-slider stream-pip-opacity" min="20" max="100" value="${savedOpacity}">
+      <button class="music-pip-btn stream-pip-fullscreen" title="Fullscreen">⤢</button>
       <button class="music-pip-btn stream-pip-close" title="Close">✕</button>
     </div>
   `;
@@ -1417,8 +1463,17 @@ _popOutStreamWindow(tile, userId) {
 
   pip.querySelector('.stream-pip-popin').addEventListener('click', popIn);
   pip.querySelector('.stream-pip-close').addEventListener('click', closePip);
+  pip.querySelector('.stream-pip-fullscreen').addEventListener('click', (e) => {
+    e.stopPropagation();
+    const vid = pip.querySelector('video');
+    const target = vid || pip;
+    if (document.fullscreenElement) {
+      document.exitFullscreen().catch(() => {});
+    } else {
+      (target.requestFullscreen || target.webkitRequestFullscreen).call(target).catch(() => {});
+    }
+  });
 
-  // Opacity slider
   pip.querySelector('.stream-pip-opacity').addEventListener('input', (e) => {
     const val = parseInt(e.target.value);
     pip.style.opacity = val / 100;
