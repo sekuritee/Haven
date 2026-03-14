@@ -152,7 +152,7 @@ _setupUI() {
     if (idx >= 0) { muted.splice(idx, 1); this._showToast('Channel unmuted', 'success'); }
     else { muted.push(code); this._showToast('Channel muted', 'success'); }
     localStorage.setItem('haven_muted_channels', JSON.stringify(muted));
-    this._renderChannelList();
+    this._renderChannels();
   });
   // Join voice from context menu
   document.querySelector('[data-action="join-voice"]')?.addEventListener('click', () => {
