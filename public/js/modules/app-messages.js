@@ -147,32 +147,33 @@ _renderMessages(messages) {
   }
 },
 
-/** Prepend older messages to the top of the messages container, preserving scroll position */
+/** Prepend older messages to the top of the messages container, preserving scroll position.
+ *
+ *  Flow:
+ *  1. Freeze scroll listeners so DOM mutations can't trip coupling/pagination.
+ *  2. Snapshot scrollTop + scrollHeight.
+ *  3. Insert older messages at the top.
+ *  4. Restore scrollTop += (newScrollHeight - oldScrollHeight).  This is pure
+ *     arithmetic — the inserted content pushed everything down by exactly that
+ *     many pixels, so adding the delta keeps the same messages on screen.
+ *  5. Trim newer messages from the BOTTOM.  Because trimmed content is entirely
+ *     below the viewport, removing it cannot shift the visible messages.
+ *  6. Unfreeze listeners on the next frame once layout has settled.
+ *
+ *  Result: the scrollbar lands roughly in the centre of the track, giving the
+ *  user freedom to scroll in either direction.
+ */
 _prependMessages(messages) {
   const container = document.getElementById('messages');
-  const firstChild = container.firstChild;
+
+  // 1. Freeze
+  this._suppressCoupleCheck = true;
+
+  // 2. Snapshot
   const prevScrollTop = container.scrollTop;
   const prevScrollHeight = container.scrollHeight;
 
-  // Capture a scroll anchor: the first visible message element in the viewport.
-  // We track by message id so we can reliably re-find the same node post-insert.
-  let anchorEl = null;
-  let anchorMsgId = null;
-  let anchorOffset = 0;
-  if (firstChild) {
-    const containerRect = container.getBoundingClientRect();
-    const anchors = container.querySelectorAll('.message, .message-compact');
-    for (const child of anchors) {
-      const r = child.getBoundingClientRect();
-      if (r.bottom > containerRect.top && r.top < containerRect.bottom) {
-        anchorEl = child;
-        anchorMsgId = child.dataset ? child.dataset.msgId : null;
-        anchorOffset = r.top - containerRect.top;
-        break;
-      }
-    }
-  }
-
+  // Build fragment
   const fragment = document.createDocumentFragment();
   const addedEls = [];
   messages.forEach((msg, i) => {
@@ -182,50 +183,30 @@ _prependMessages(messages) {
     addedEls.push(el);
   });
 
-  // Re-evaluate grouping of the previously-first message against the new last prepended message
-  if (firstChild && firstChild.dataset && messages.length > 0) {
-    const lastPrepended = messages[messages.length - 1];
-    const firstExisting = firstChild;
-    if (firstExisting.dataset.userId && parseInt(firstExisting.dataset.userId) === lastPrepended.user_id) {
-      const timeDiff = new Date(firstExisting.dataset.time) - new Date(lastPrepended.created_at);
-      if (timeDiff < 5 * 60 * 1000) {
-        // Already compact — that's fine, keep it
-      }
+  // 3. Insert at top
+  container.insertBefore(fragment, container.firstChild);
+
+  // 4. Restore — keep the exact same messages on screen
+  container.scrollTop = prevScrollTop + (container.scrollHeight - prevScrollHeight);
+
+  // 5. Trim newest messages from the bottom (below viewport — no visual effect)
+  const MAX_DOM_MESSAGES = 100;
+  const excess = container.children.length - MAX_DOM_MESSAGES;
+  if (excess > 0) {
+    for (let i = 0; i < excess; i++) {
+      container.removeChild(container.lastElementChild);
+    }
+    this._noMoreFuture = false;
+    const last = container.lastElementChild;
+    if (last && last.dataset && last.dataset.msgId) {
+      this._newestMsgId = parseInt(last.dataset.msgId);
     }
   }
 
-  // Suppress coupling + pagination listeners while we mutate the DOM
-  this._suppressCoupleCheck = true;
+  // 6. Unfreeze on next frame
+  requestAnimationFrame(() => { this._suppressCoupleCheck = false; });
 
-  container.insertBefore(fragment, firstChild);
-
-  // Restore scroll position so the user's view stays on the same content
-  const restoreAnchor = () => {
-    let target = anchorEl;
-    if (anchorMsgId) {
-      const byId = container.querySelector(`[data-msg-id="${CSS.escape(anchorMsgId)}"]`);
-      if (byId) target = byId;
-    }
-    if (!target) return false;
-    const containerRect = container.getBoundingClientRect();
-    const anchorRect = target.getBoundingClientRect();
-    const drift = (anchorRect.top - containerRect.top) - anchorOffset;
-    container.scrollTop += drift;
-    return true;
-  };
-
-  if (!restoreAnchor()) {
-    // Fallback if no visible anchor element could be resolved.
-    container.scrollTop = prevScrollTop + (container.scrollHeight - prevScrollHeight);
-  }
-
-  // One more correction on the next frame for any immediate reflow.
-  requestAnimationFrame(() => {
-    restoreAnchor();
-    this._suppressCoupleCheck = false;
-  });
-
-  // Process only newly-prepended messages to avoid touching the visible window.
+  // Process only newly-prepended messages (above viewport — won't reflow visible area)
   for (const el of addedEls) {
     this._fetchLinkPreviews(el);
     this._setupVideos(el);
