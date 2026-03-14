@@ -587,13 +587,13 @@ _setupUI() {
     if (e.target === e.currentTarget) e.currentTarget.style.display = 'none';
   });
   // Rename channel / sub-channel
-  document.querySelector('[data-action="rename-channel"]')?.addEventListener('click', () => {
+  document.querySelector('[data-action="rename-channel"]')?.addEventListener('click', async () => {
     const code = this._ctxMenuChannel;
     if (!code) return;
     this._closeChannelCtxMenu();
     const ch = this.channels.find(c => c.code === code);
     if (!ch) return;
-    const name = prompt(`Rename #${ch.name}:\nEnter new name:`, ch.name);
+    const name = await this._showPromptModal('Rename Channel', `Rename #${ch.name}:\nEnter new name:`, ch.name);
     if (name && name.trim() && name.trim() !== ch.name) {
       this.socket.emit('rename-channel', { code, name: name.trim() });
     }
@@ -839,18 +839,46 @@ _setupUI() {
 
   // ── Webcam collapse button ── (handler already bound above)
 
-  document.getElementById('voice-ns-slider').addEventListener('input', (e) => {
-    if (this.voice && this.voice.inVoice) {
-      this.voice.setNoiseSensitivity(parseInt(e.target.value, 10));
+  // ── Noise mode selector ──
+  const noiseModeSelect = document.getElementById('voice-noise-mode');
+  const noiseGateRow = document.getElementById('noise-gate-row');
+  const nsSlider = document.getElementById('voice-ns-slider');
+
+  // Restore saved mode
+  const savedNoiseMode = localStorage.getItem('haven_noise_mode') || 'gate';
+  noiseModeSelect.value = savedNoiseMode;
+  noiseGateRow.style.display = savedNoiseMode === 'gate' ? '' : 'none';
+
+  noiseModeSelect.addEventListener('change', (e) => {
+    const mode = e.target.value;
+    noiseGateRow.style.display = mode === 'gate' ? '' : 'none';
+    if (this.voice) this.voice.setNoiseMode(mode);
+    // Update mic meter threshold visibility
+    if (mode === 'gate') {
+      this._updateMicMeterThreshold(parseInt(nsSlider.value, 10));
+    } else {
+      this._updateMicMeterThreshold(0);
     }
-    this._updateMicMeterThreshold(parseInt(e.target.value, 10));
   });
+
+  nsSlider.addEventListener('input', (e) => {
+    const val = parseInt(e.target.value, 10);
+    if (this.voice && this.voice.inVoice) {
+      this.voice.setNoiseSensitivity(val);
+    }
+    localStorage.setItem('haven_ns_value', val);
+    this._updateMicMeterThreshold(val);
+  });
+
+  // Restore saved gate sensitivity
+  const savedNsVal = localStorage.getItem('haven_ns_value');
+  if (savedNsVal !== null) nsSlider.value = savedNsVal;
 
   // ── Mic level meter ──
   this._micMeterFill = document.getElementById('mic-meter-fill');
   this._micMeterThreshold = document.getElementById('mic-meter-threshold');
   this._micMeterRAF = null;
-  this._updateMicMeterThreshold(10); // default
+  this._updateMicMeterThreshold(savedNoiseMode === 'gate' ? parseInt(nsSlider.value, 10) : 0);
   this._startMicMeter();
 
   // ── Screen share quality dropdowns ──
@@ -882,12 +910,20 @@ _setupUI() {
   // Wire up no-audio indicator for streams without audio
   this.voice.onScreenNoAudio = (userId) => this._handleScreenNoAudio(userId);
 
-  // Wire up voice join/leave audio cues
+  // Wire up voice join/leave audio cues + Desktop OS notifications
   this.voice.onVoiceJoin = (userId, username) => {
     this.notifications.playDirect('voice_join');
+    if (window.havenDesktop?.notify && userId !== this.user?.id) {
+      const name = this._getNickname(userId, username) || username;
+      window.havenDesktop.notify('Voice', `${name} joined voice`, { silent: true });
+    }
   };
   this.voice.onVoiceLeave = (userId, username) => {
     this.notifications.playDirect('voice_leave');
+    if (window.havenDesktop?.notify && userId !== this.user?.id) {
+      const name = this._getNickname(userId, username) || username;
+      window.havenDesktop.notify('Voice', `${name} left voice`, { silent: true });
+    }
   };
   // Wire up screen share start audio cue
   this.voice.onScreenShareStarted = (userId, username) => {

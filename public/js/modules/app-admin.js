@@ -2162,10 +2162,12 @@ _initRoleManagement() {
   document.getElementById('close-role-modal-btn')?.addEventListener('click', () => {
     document.getElementById('role-modal').style.display = 'none';
   });
-  document.getElementById('create-role-btn')?.addEventListener('click', () => {
-    const name = prompt('Enter role name:');
+  document.getElementById('create-role-btn')?.addEventListener('click', async () => {
+    const name = await this._showPromptModal('Create Role', 'Enter role name:');
     if (!name || !name.trim()) return;
-    const level = parseInt(prompt('Role level (1-99, higher = more authority):\nServer Mod default = 50, Channel Mod default = 25', '25'), 10);
+    const levelStr = await this._showPromptModal('Role Level', 'Role level (1-99, higher = more authority):\nServer Mod default = 50, Channel Mod default = 25', '25');
+    if (levelStr === null) return;
+    const level = parseInt(levelStr, 10);
     if (isNaN(level) || level < 1 || level > 99) { this._showToast('Level must be 1-99', 'error'); return; }
     this.socket.emit('create-role', { name: name.trim(), level, color: '#aaaaaa' }, (res) => {
       if (res.error) { this._showToast(res.error, 'error'); return; }
@@ -2775,10 +2777,12 @@ _renderChannelRolesRoleDetail() {
   });
 },
 
-_createChannelRole() {
-  const name = prompt('Enter role name:');
+async _createChannelRole() {
+  const name = await this._showPromptModal('Create Role', 'Enter role name:');
   if (!name || !name.trim()) return;
-  const level = parseInt(prompt('Role level (1-99, higher = more authority):\nServer Mod default = 50, Channel Mod default = 25', '25'), 10);
+  const levelStr = await this._showPromptModal('Role Level', 'Role level (1-99, higher = more authority):\nServer Mod default = 50, Channel Mod default = 25', '25');
+  if (levelStr === null) return;
+  const level = parseInt(levelStr, 10);
   if (isNaN(level) || level < 1 || level > 99) { this._showToast('Level must be 1–99', 'error'); return; }
   this.socket.emit('create-role', { name: name.trim(), level, color: '#aaaaaa' }, (res) => {
     if (res.error) { this._showToast(res.error, 'error'); return; }

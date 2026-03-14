@@ -1514,4 +1514,38 @@ _confirmTransferAdmin(userId, username) {
   });
 },
 
+// ── Generic prompt modal (replaces window.prompt for Electron compat) ──
+_showPromptModal(title, message, defaultValue = '') {
+  return new Promise((resolve) => {
+    const overlay = document.createElement('div');
+    overlay.className = 'modal-overlay';
+    overlay.style.display = 'flex';
+    overlay.style.zIndex = '100002';
+    overlay.innerHTML = `
+      <div class="modal" style="max-width:380px">
+        <h3 style="margin-top:0">${this._escapeHtml(title)}</h3>
+        ${message ? `<p class="muted-text" style="margin:0 0 12px;white-space:pre-line">${this._escapeHtml(message)}</p>` : ''}
+        <input type="text" class="modal-input" id="prompt-modal-input" value="${this._escapeHtml(defaultValue)}" style="width:100%;box-sizing:border-box">
+        <div class="modal-actions" style="margin-top:12px">
+          <button class="btn-sm" id="prompt-modal-cancel">Cancel</button>
+          <button class="btn-sm btn-accent" id="prompt-modal-ok">OK</button>
+        </div>
+      </div>
+    `;
+    document.body.appendChild(overlay);
+    const input = overlay.querySelector('#prompt-modal-input');
+    input.focus();
+    input.select();
+
+    const close = (val) => { overlay.remove(); resolve(val); };
+    overlay.querySelector('#prompt-modal-cancel').addEventListener('click', () => close(null));
+    overlay.querySelector('#prompt-modal-ok').addEventListener('click', () => close(input.value));
+    overlay.addEventListener('click', (e) => { if (e.target === overlay) close(null); });
+    input.addEventListener('keydown', (e) => {
+      if (e.key === 'Enter') close(input.value);
+      if (e.key === 'Escape') close(null);
+    });
+  });
+},
+
 };

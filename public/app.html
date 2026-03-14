@@ -523,7 +523,15 @@
           </div>
           <div class="voice-settings-divider"></div>
           <div class="voice-settings-row">
-            <label class="voice-settings-label">🤫 Noise Suppression</label>
+            <label class="voice-settings-label">🤫 Noise Reduction</label>
+            <select id="voice-noise-mode" class="voice-settings-select" title="Off = no processing, Gate = silence below threshold, Suppress = AI noise removal (RNNoise)">
+              <option value="off">Off</option>
+              <option value="gate">Noise Gate</option>
+              <option value="suppress">Suppression (AI)</option>
+            </select>
+          </div>
+          <div class="voice-settings-row" id="noise-gate-row">
+            <label class="voice-settings-label" style="font-size:0.72rem;opacity:0.8">Gate Sensitivity</label>
             <input type="range" id="voice-ns-slider" class="ns-slider" min="0" max="100" value="10" title="Noise gate: 0 = off, 100 = aggressive">
           </div>
           <div class="voice-settings-row mic-meter-row">
@@ -970,6 +978,14 @@
             <span class="toggle-label">Start on Login</span>
           </label>
           <p class="settings-hint">Launch Haven Desktop automatically when you log in to your computer.</p>
+        </div>
+
+        <div class="desktop-pref-row" id="pref-start-hidden-row" style="display:none">
+          <label class="toggle-row">
+            <input type="checkbox" id="pref-start-hidden">
+            <span class="toggle-label">Start Hidden to Tray</span>
+          </label>
+          <p class="settings-hint">When launching on login, start minimized to the system tray instead of showing the window.</p>
         </div>
 
         <div class="desktop-pref-row">

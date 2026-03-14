@@ -135,10 +135,10 @@ _updateTopicBar(topic) {
   if (topic) bar.style.opacity = '1';
 },
 
-_editTopic() {
+async _editTopic() {
   const channel = this.channels.find(c => c.code === this.currentChannel);
   const current = channel?.topic || '';
-  const newTopic = prompt('Set channel topic (max 256 chars):', current);
+  const newTopic = await this._showPromptModal('Channel Topic', 'Set channel topic (max 256 chars):', current);
   if (newTopic === null) return; // cancelled
   this.socket.emit('set-channel-topic', { code: this.currentChannel, topic: newTopic.slice(0, 256) });
 },
@@ -1125,8 +1125,22 @@ _renderChannels() {
         document.querySelectorAll(`.sub-channel-item[data-parent-id="${ch.id}"], .sub-tag-label[data-parent-id="${ch.id}"]`).forEach(sub => {
           sub.style.display = collapsed ? 'none' : '';
         });
-        // Remove the parent bubble when expanding — individual sub-channel badges are now visible
-        if (!collapsed) {
+        if (collapsed) {
+          // Bubble up sub-channel unreads to the parent
+          const subTotal = this.channels
+            .filter(c => c.parent_channel_id === ch.id)
+            .reduce((sum, c) => sum + (this.unreadCounts[c.code] || 0), 0);
+          if (subTotal > 0) {
+            let bubble = el.querySelector('.channel-badge-bubble');
+            if (!bubble) {
+              bubble = document.createElement('span');
+              bubble.className = 'channel-badge channel-badge-bubble';
+              el.appendChild(bubble);
+            }
+            bubble.textContent = subTotal > 99 ? '99+' : subTotal;
+          }
+        } else {
+          // Remove the parent bubble when expanding — individual sub-channel badges are now visible
           const bubble = el.querySelector('.channel-badge-bubble');
           if (bubble) bubble.remove();
         }
@@ -1257,6 +1271,23 @@ _renderChannels() {
         if (isCollapsed) subEl.style.display = 'none';
         list.appendChild(subEl);
       });
+
+      // If collapsed and sub-channels have unreads, bubble a badge onto the parent
+      if (isCollapsed && subs.length) {
+        const subTotal = subs.reduce((sum, s) => {
+          const cnt = (s.code in this.unreadCounts) ? this.unreadCounts[s.code] : (s.unreadCount || 0);
+          return sum + cnt;
+        }, 0);
+        if (subTotal > 0) {
+          const parentEl = list.querySelector(`.channel-item[data-code="${ch.code}"]`);
+          if (parentEl) {
+            const bubble = document.createElement('span');
+            bubble.className = 'channel-badge channel-badge-bubble';
+            bubble.textContent = subTotal > 99 ? '99+' : subTotal;
+            parentEl.appendChild(bubble);
+          }
+        }
+      }
     });
   }
 

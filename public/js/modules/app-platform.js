@@ -355,11 +355,15 @@ async _setupDesktopAppPrefs() {
   try { prefs = await window.havenDesktop.prefs.get(); } catch {}
 
   const startEl   = document.getElementById('pref-start-on-login');
+  const hiddenEl  = document.getElementById('pref-start-hidden');
+  const hiddenRow = document.getElementById('pref-start-hidden-row');
   const trayEl    = document.getElementById('pref-minimize-to-tray');
   const sdrEl     = document.getElementById('pref-force-sdr');
   const versionEl = document.getElementById('desktop-version-info');
 
   if (startEl) { startEl.checked = !!prefs.startOnLogin; }
+  if (hiddenEl) { hiddenEl.checked = !!prefs.startHidden; }
+  if (hiddenRow) { hiddenRow.style.display = prefs.startOnLogin ? '' : 'none'; }
   if (trayEl)  { trayEl.checked  = !!prefs.minimizeToTray; }
   if (sdrEl)   { sdrEl.checked   = !!prefs.forceSDR; }
 
@@ -374,6 +378,13 @@ async _setupDesktopAppPrefs() {
   startEl?.addEventListener('change', async () => {
     try { await window.havenDesktop.prefs.setStartOnLogin(startEl.checked); }
     catch { startEl.checked = !startEl.checked; }
+    // Show/hide the start-hidden option
+    if (hiddenRow) hiddenRow.style.display = startEl.checked ? '' : 'none';
+  });
+
+  hiddenEl?.addEventListener('change', async () => {
+    try { await window.havenDesktop.prefs.setStartHidden(hiddenEl.checked); }
+    catch { hiddenEl.checked = !hiddenEl.checked; }
   });
 
   trayEl?.addEventListener('change', async () => {

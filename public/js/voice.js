@@ -40,6 +40,14 @@ class VoiceManager {
     this._noiseGateAnalyser = null;
     this._vcDest = null;             // MediaStreamDestination node for mixing soundboard audio into VC
 
+    // RNNoise noise suppression state
+    this._rnnoiseNode = null;        // AudioWorkletNode for RNNoise
+    this._rnnoiseReady = false;      // true once WASM is loaded in the worklet
+    this._rnnoiseSource = null;      // MediaStreamSource feeding the chain
+    // Noise mode: 'off' | 'gate' | 'suppress'
+    const savedMode = localStorage.getItem('haven_noise_mode');
+    this.noiseMode = savedMode || 'gate';
+
     // Screen share quality settings (populated from localStorage)
     const savedRes = localStorage.getItem('haven_screen_res');
     this.screenResolution = savedRes !== null ? parseInt(savedRes, 10) : 1080;  // 0 = source
@@ -311,6 +319,7 @@ class VoiceManager {
       // Route mic through an analyser + gain node so we can silence
       // audio below a threshold before sending it to peers.
       const source = this.audioCtx.createMediaStreamSource(this.rawStream);
+      this._rnnoiseSource = source;
       const gateAnalyser = this.audioCtx.createAnalyser();
       gateAnalyser.fftSize = 2048;
       gateAnalyser.smoothingTimeConstant = 0.3;
@@ -327,6 +336,15 @@ class VoiceManager {
       this._vcDest = dest;
       this.localStream = dest.stream;   // processed stream → peers
       this._startNoiseGate();
+
+      // Initialize RNNoise and apply saved noise mode
+      await this._initRNNoise();
+      if (this.noiseMode === 'suppress' && this._rnnoiseReady) {
+        this.setNoiseSensitivity(0);
+        this._enableRNNoise();
+      } else if (this.noiseMode === 'off') {
+        this.setNoiseSensitivity(0);
+      }
 
       this.currentChannel = channelCode;
       this.inVoice = true;
@@ -358,6 +376,7 @@ class VoiceManager {
     }
 
     // Stop noise gate and talk detection
+    this._disableRNNoise();
     this._stopNoiseGate();
     this._stopLocalTalkDetection();
     for (const [id] of this.analysers) this._stopAnalyser(id);
@@ -1170,10 +1189,12 @@ class VoiceManager {
     this.rawStream = newRawStream;
 
     // Rebuild noise gate chain
+    this._disableRNNoise();
     this._stopNoiseGate();
     this._stopLocalTalkDetection();
 
     const source = this.audioCtx.createMediaStreamSource(this.rawStream);
+    this._rnnoiseSource = source;
     const gateAnalyser = this.audioCtx.createAnalyser();
     gateAnalyser.fftSize = 2048;
     gateAnalyser.smoothingTimeConstant = 0.3;
@@ -1192,6 +1213,12 @@ class VoiceManager {
     this.localStream = dest.stream;
     this._startNoiseGate();
     this._startLocalTalkDetection();
+
+    // Re-enable RNNoise if it was active
+    if (this.noiseMode === 'suppress' && this._rnnoiseReady) {
+      this.setNoiseSensitivity(0);
+      this._enableRNNoise();
+    }
 
     // Replace the audio track on every peer connection
     const newTrack = this.localStream.getAudioTracks()[0];
@@ -1315,6 +1342,77 @@ class VoiceManager {
 
   // ── Noise Gate ───────────────────────────────────────────
 
+  setNoiseMode(mode) {
+    // mode: 'off' | 'gate' | 'suppress'
+    this.noiseMode = mode;
+    localStorage.setItem('haven_noise_mode', mode);
+
+    if (mode === 'suppress') {
+      // Disable noise gate, enable RNNoise
+      if (this.noiseSensitivity !== 0) {
+        this.setNoiseSensitivity(0);
+      }
+      this._enableRNNoise();
+    } else if (mode === 'gate') {
+      // Disable RNNoise, enable noise gate with saved sensitivity
+      this._disableRNNoise();
+      const saved = parseInt(localStorage.getItem('haven_ns_value') || '10', 10);
+      this.setNoiseSensitivity(saved);
+    } else {
+      // Off — disable both
+      this._disableRNNoise();
+      this.setNoiseSensitivity(0);
+    }
+  }
+
+  async _initRNNoise() {
+    if (this._rnnoiseReady || !this.audioCtx) return;
+    try {
+      await this.audioCtx.audioWorklet.addModule('/js/rnnoise-processor.js');
+      const wasmResponse = await fetch('/js/rnnoise.wasm');
+      const wasmBytes = await wasmResponse.arrayBuffer();
+      const wasmModule = await WebAssembly.compile(wasmBytes);
+      this._rnnoiseWasmModule = wasmModule;
+      this._rnnoiseReady = true;
+    } catch (err) {
+      console.warn('[Voice] RNNoise init failed:', err);
+      this._rnnoiseReady = false;
+    }
+  }
+
+  _enableRNNoise() {
+    if (!this._rnnoiseReady || !this._rnnoiseSource || this._rnnoiseNode) return;
+    try {
+      const node = new AudioWorkletNode(this.audioCtx, 'rnnoise-processor', {
+        numberOfInputs: 1, numberOfOutputs: 1,
+        outputChannelCount: [1], channelCount: 1
+      });
+      node.port.postMessage({ type: 'wasm-module', module: this._rnnoiseWasmModule });
+      // Re-wire: source → rnnoise → gateGain (gate is open since sensitivity=0)
+      this._rnnoiseSource.disconnect(this._noiseGateGain);
+      this._rnnoiseSource.connect(node);
+      node.connect(this._noiseGateGain);
+      this._rnnoiseNode = node;
+    } catch (err) {
+      console.warn('[Voice] Failed to enable RNNoise:', err);
+    }
+  }
+
+  _disableRNNoise() {
+    if (!this._rnnoiseNode) return;
+    try {
+      this._rnnoiseNode.port.postMessage({ type: 'destroy' });
+      this._rnnoiseNode.disconnect();
+      this._rnnoiseNode = null;
+      // Re-wire: source → gateGain directly
+      if (this._rnnoiseSource && this._noiseGateGain) {
+        this._rnnoiseSource.connect(this._noiseGateGain);
+      }
+    } catch (err) {
+      console.warn('[Voice] Failed to disable RNNoise:', err);
+    }
+  }
+
   setNoiseSensitivity(value) {
     // value: 0 (off / gate open) → 100 (aggressive gating)
     this.noiseSensitivity = Math.max(0, Math.min(100, value));
@@ -1381,6 +1479,7 @@ class VoiceManager {
     }
     this._noiseGateAnalyser = null;
     this._noiseGateGain = null;
+    this._rnnoiseSource = null;
     this.currentMicLevel = 0;
   }
 

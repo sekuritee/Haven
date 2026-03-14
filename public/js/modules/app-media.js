@@ -1240,8 +1240,8 @@ _openBotModal() {
   this.socket.emit('get-webhooks');
 },
 
-_createNewBot() {
-  const name = prompt('Enter bot name:');
+async _createNewBot() {
+  const name = await this._showPromptModal('Create Bot', 'Enter bot name:');
   if (!name || !name.trim()) return;
   // Pick first non-DM channel as default
   const firstChannel = this.channels.find(c => !c.is_dm);
