@@ -538,10 +538,26 @@ function initDatabase() {
     { name: 'voice_user_limit',   sql: "ALTER TABLE channels ADD COLUMN voice_user_limit INTEGER DEFAULT 0" },
     { name: 'media_enabled',      sql: "ALTER TABLE channels ADD COLUMN media_enabled INTEGER DEFAULT 1" },
     { name: 'notification_type',  sql: "ALTER TABLE channels ADD COLUMN notification_type TEXT DEFAULT 'default'" },
+    { name: 'voice_enabled',     sql: "ALTER TABLE channels ADD COLUMN voice_enabled INTEGER DEFAULT 1" },
+    { name: 'text_enabled',      sql: "ALTER TABLE channels ADD COLUMN text_enabled INTEGER DEFAULT 1" },
   ];
   for (const col of channelQolCols) {
     try { db.prepare(`SELECT ${col.name} FROM channels LIMIT 0`).get(); } catch { db.exec(col.sql); }
   }
+
+  // ── Migration: convert legacy channel_type to individual toggles ──
+  try {
+    const textOnlyChannels = db.prepare("SELECT id FROM channels WHERE channel_type = 'text'").all();
+    if (textOnlyChannels.length > 0) {
+      const update = db.prepare("UPDATE channels SET voice_enabled = 0, channel_type = 'standard' WHERE id = ?");
+      for (const ch of textOnlyChannels) update.run(ch.id);
+    }
+    const voiceOnlyChannels = db.prepare("SELECT id FROM channels WHERE channel_type = 'voice'").all();
+    if (voiceOnlyChannels.length > 0) {
+      const update = db.prepare("UPDATE channels SET text_enabled = 0, channel_type = 'standard' WHERE id = ?");
+      for (const ch of voiceOnlyChannels) update.run(ch.id);
+    }
+  } catch { /* channel_type column may not exist yet on first run */ }
 
   // ── Migration: E2E public key on users ──────────────────
   try {

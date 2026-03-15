@@ -186,29 +186,40 @@ _setupUI() {
     this._closeChannelCtxMenu();
     this._leaveVoice();
   });
-  // Channel Functions panel toggle
+  // Channel Functions panel toggle — sideways popout
   document.querySelector('[data-action="channel-functions"]')?.addEventListener('click', (e) => {
     e.stopPropagation();
     const panel = document.getElementById('channel-functions-panel');
-    const arrow = e.currentTarget.querySelector('.cfn-arrow');
     if (!panel) return;
     const isHidden = panel.style.display === 'none' || panel.style.display === '';
-    panel.style.display = isHidden ? 'block' : 'none';
-    if (arrow) arrow.textContent = isHidden ? '▼' : '▶';
-    // Re-clamp menu position now that its height changed
-    const menu = this._ctxMenuEl;
-    if (menu && menu._anchorEl) {
-      requestAnimationFrame(() => {
-        const mr = menu.getBoundingClientRect();
-        const rect = menu._anchorEl.getBoundingClientRect();
-        if (mr.bottom > window.innerHeight) {
-          menu.style.top = Math.max(4, rect.top - mr.height - 4) + 'px';
-        } else {
-          const belowTop = rect.bottom + 4;
-          if (belowTop + mr.height <= window.innerHeight) menu.style.top = belowTop + 'px';
-        }
-        if (mr.right > window.innerWidth) menu.style.left = (window.innerWidth - mr.width - 8) + 'px';
-      });
+    if (isHidden) {
+      panel.style.display = 'block';
+      // Position the panel to the right of the context menu
+      const menu = this._ctxMenuEl;
+      if (menu) {
+        const menuRect = menu.getBoundingClientRect();
+        const btnRect = e.currentTarget.getBoundingClientRect();
+        let left = menuRect.right + 4;
+        let top = btnRect.top;
+        // Show on screen, measure, then adjust
+        panel.style.left = left + 'px';
+        panel.style.top = top + 'px';
+        requestAnimationFrame(() => {
+          const pr = panel.getBoundingClientRect();
+          // If it overflows right, flip to the left side
+          if (pr.right > window.innerWidth - 8) {
+            left = menuRect.left - pr.width - 4;
+          }
+          // If it overflows bottom, nudge up
+          if (pr.bottom > window.innerHeight - 8) {
+            top = Math.max(4, window.innerHeight - pr.height - 8);
+          }
+          panel.style.left = left + 'px';
+          panel.style.top = top + 'px';
+        });
+      }
+    } else {
+      panel.style.display = 'none';
     }
   });
   // Channel Functions panel — row clicks
@@ -262,18 +273,17 @@ _setupUI() {
       const newVal = ch && ch.cleanup_exempt === 1 ? 0 : 1;
       optimistic({ cleanup_exempt: newVal });
       this.socket.emit('toggle-cleanup-exempt', { code });
-    } else if (fn === 'text-only') {
-      const isTextOnly = ch && ch.channel_type === 'text';
-      const newType = isTextOnly ? 'standard' : 'text';
-      // Enabling text-only disables streams + music; disabling restores both to on
-      const patch = { channel_type: newType, streams_enabled: newType === 'text' ? 0 : 1, music_enabled: newType === 'text' ? 0 : 1 };
+    } else if (fn === 'voice') {
+      const newVal = ch && ch.voice_enabled === 0 ? 1 : 0;
+      // Disabling voice also disables streams and music
+      const patch = { voice_enabled: newVal };
+      if (newVal === 0) { patch.streams_enabled = 0; patch.music_enabled = 0; }
       optimistic(patch);
-      this.socket.emit('set-channel-type', { code, type: newType });
-    } else if (fn === 'voice-only') {
-      const isVoiceOnly = ch && ch.channel_type === 'voice';
-      const newType = isVoiceOnly ? 'standard' : 'voice';
-      optimistic({ channel_type: newType });
-      this.socket.emit('set-channel-type', { code, type: newType });
+      this.socket.emit('toggle-channel-permission', { code, permission: 'voice' });
+    } else if (fn === 'text') {
+      const newVal = ch && ch.text_enabled === 0 ? 1 : 0;
+      optimistic({ text_enabled: newVal });
+      this.socket.emit('toggle-channel-permission', { code, permission: 'text' });
     } else if (fn === 'announcement') {
       const isAnnouncement = ch && ch.notification_type === 'announcement';
       const newType = isAnnouncement ? 'default' : 'announcement';
@@ -600,7 +610,7 @@ _setupUI() {
   });
   // Close context menu on outside click
   document.addEventListener('click', (e) => {
-    if (!e.target.closest('.channel-ctx-menu') && !e.target.closest('.channel-more-btn')) {
+    if (!e.target.closest('.channel-ctx-menu') && !e.target.closest('.channel-more-btn') && !e.target.closest('.channel-functions-panel')) {
       this._closeChannelCtxMenu();
     }
   });

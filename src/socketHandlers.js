@@ -733,7 +733,7 @@ function setupSocketHandlers(io, db) {
                  c.code_visibility, c.code_mode, c.code_rotation_type, c.code_rotation_interval,
                  c.parent_channel_id, c.position, c.is_private,
                  c.streams_enabled, c.music_enabled, c.media_enabled, c.slow_mode_interval, c.category, c.sort_alphabetical,
-                 c.cleanup_exempt, c.channel_type, c.voice_user_limit, c.notification_type
+                 c.cleanup_exempt, c.channel_type, c.voice_user_limit, c.notification_type, c.voice_enabled, c.text_enabled
           FROM channels c
           WHERE c.is_dm = 0
           UNION
@@ -741,7 +741,7 @@ function setupSocketHandlers(io, db) {
                  c.code_visibility, c.code_mode, c.code_rotation_type, c.code_rotation_interval,
                  c.parent_channel_id, c.position, c.is_private,
                  c.streams_enabled, c.music_enabled, c.media_enabled, c.slow_mode_interval, c.category, c.sort_alphabetical,
-                 c.cleanup_exempt, c.channel_type, c.voice_user_limit, c.notification_type
+                 c.cleanup_exempt, c.channel_type, c.voice_user_limit, c.notification_type, c.voice_enabled, c.text_enabled
           FROM channels c
           JOIN channel_members cm ON c.id = cm.channel_id
           WHERE cm.user_id = ? AND c.is_dm = 1
@@ -758,7 +758,7 @@ function setupSocketHandlers(io, db) {
                  c.code_visibility, c.code_mode, c.code_rotation_type, c.code_rotation_interval,
                  c.parent_channel_id, c.position, c.is_private,
                  c.streams_enabled, c.music_enabled, c.media_enabled, c.slow_mode_interval, c.category, c.sort_alphabetical,
-                 c.cleanup_exempt, c.channel_type, c.voice_user_limit, c.notification_type
+                 c.cleanup_exempt, c.channel_type, c.voice_user_limit, c.notification_type, c.voice_enabled, c.text_enabled
           FROM channels c
           JOIN channel_members cm ON c.id = cm.channel_id
           WHERE cm.user_id = ?
@@ -1364,7 +1364,7 @@ function setupSocketHandlers(io, db) {
         return socket.emit('error-msg', `You are muted for ${remaining} more minute${remaining !== 1 ? 's' : ''}`);
       }
 
-      const channel = db.prepare('SELECT id, name, slow_mode_interval, channel_type, media_enabled FROM channels WHERE code = ?').get(code);
+      const channel = db.prepare('SELECT id, name, slow_mode_interval, text_enabled, voice_enabled, media_enabled FROM channels WHERE code = ?').get(code);
       if (!channel) return;
 
       const member = db.prepare(
@@ -1372,9 +1372,9 @@ function setupSocketHandlers(io, db) {
       ).get(channel.id, socket.user.id);
       if (!member) return socket.emit('error-msg', 'Not a member of this channel');
 
-      // Block text messages in voice-only channels
-      if (channel.channel_type === 'voice') {
-        return socket.emit('error-msg', 'This is a voice-only channel — text messages are disabled');
+      // Block text messages when text is disabled
+      if (channel.text_enabled === 0) {
+        return socket.emit('error-msg', 'Text messages are disabled in this channel');
       }
 
       // Block media uploads if media is disabled in this channel
@@ -1534,9 +1534,9 @@ function setupSocketHandlers(io, db) {
       if (!vMember) return socket.emit('error-msg', 'Not a member of this channel');
 
       // Check channel type and voice user limit
-      const vchSettings = db.prepare('SELECT channel_type, voice_user_limit FROM channels WHERE code = ?').get(code);
-      if (vchSettings && vchSettings.channel_type === 'text') {
-        return socket.emit('error-msg', 'This is a text-only channel — voice is disabled');
+      const vchSettings = db.prepare('SELECT voice_enabled, voice_user_limit FROM channels WHERE code = ?').get(code);
+      if (vchSettings && vchSettings.voice_enabled === 0) {
+        return socket.emit('error-msg', 'Voice is disabled in this channel');
       }
       if (vchSettings && vchSettings.voice_user_limit > 0) {
         const currentCount = voiceUsers.has(code) ? voiceUsers.get(code).size : 0;
@@ -2163,9 +2163,9 @@ function setupSocketHandlers(io, db) {
 
         const code = socket.currentChannel;
         if (!code) return;
-        const channel = db.prepare('SELECT id, name, channel_type FROM channels WHERE code = ?').get(code);
+        const channel = db.prepare('SELECT id, name, text_enabled FROM channels WHERE code = ?').get(code);
         if (!channel) return;
-        if (channel.channel_type === 'voice') return socket.emit('error-msg', 'Polls are not allowed in voice channels');
+        if (channel.text_enabled === 0) return socket.emit('error-msg', 'Polls are not allowed when text is disabled');
         const member = db.prepare('SELECT 1 FROM channel_members WHERE channel_id = ? AND user_id = ?').get(channel.id, socket.user.id);
         if (!member) return socket.emit('error-msg', 'Not a member of this channel');
 
@@ -5695,20 +5695,31 @@ function setupSocketHandlers(io, db) {
       if (!code || !/^[a-f0-9]{8}$/i.test(code)) return;
 
       const permission = typeof data.permission === 'string' ? data.permission.trim() : '';
-      const validPerms = ['streams', 'music', 'media'];
+      const validPerms = ['streams', 'music', 'media', 'voice', 'text'];
       if (!validPerms.includes(permission)) return socket.emit('error-msg', 'Invalid permission');
 
       const channel = db.prepare('SELECT * FROM channels WHERE code = ? AND is_dm = 0').get(code);
       if (!channel) return socket.emit('error-msg', 'Channel not found');
 
-      const colMap = { streams: 'streams_enabled', music: 'music_enabled', media: 'media_enabled' };
+      const colMap = { streams: 'streams_enabled', music: 'music_enabled', media: 'media_enabled', voice: 'voice_enabled', text: 'text_enabled' };
       const colName = colMap[permission];
       const current = channel[colName];
       const newVal = current ? 0 : 1;
 
+      // Can't enable streams or music when voice is disabled
+      if ((permission === 'streams' || permission === 'music') && newVal === 1 && channel.voice_enabled === 0) {
+        return socket.emit('error-msg', 'Enable voice first — streams and music require voice');
+      }
+
       try {
         db.prepare(`UPDATE channels SET ${colName} = ? WHERE id = ?`).run(newVal, channel.id);
-        const labelMap = { streams: 'Screen sharing', music: 'Music sharing', media: 'Media uploads' };
+
+        // Disabling voice also disables streams and music (they depend on voice)
+        if (permission === 'voice' && newVal === 0) {
+          db.prepare('UPDATE channels SET streams_enabled = 0, music_enabled = 0 WHERE id = ?').run(channel.id);
+        }
+
+        const labelMap = { streams: 'Screen sharing', music: 'Music sharing', media: 'Media uploads', voice: 'Voice chat', text: 'Text chat' };
         const label = labelMap[permission];
         const state = newVal ? 'enabled' : 'disabled';
 
@@ -5801,35 +5812,6 @@ function setupSocketHandlers(io, db) {
       } catch (err) {
         console.error('Set sort mode error:', err);
         socket.emit('error-msg', 'Failed to update sort setting');
-      }
-    });
-
-    // ── Set channel type (standard / text-only / voice-only) ───
-    socket.on('set-channel-type', (data) => {
-      if (!data || typeof data !== 'object') return;
-      if (!socket.user.isAdmin && !userHasPermission(socket.user.id, 'create_channel')) {
-        return socket.emit('error-msg', 'You don\'t have permission to change channel type');
-      }
-      const code = typeof data.code === 'string' ? data.code.trim() : '';
-      if (!code || !/^[a-f0-9]{8}$/i.test(code)) return;
-      const type = typeof data.type === 'string' ? data.type : '';
-      if (!['standard', 'text', 'voice'].includes(type)) return socket.emit('error-msg', 'Invalid channel type');
-      const channel = db.prepare('SELECT id FROM channels WHERE code = ? AND is_dm = 0').get(code);
-      if (!channel) return socket.emit('error-msg', 'Channel not found');
-      try {
-        // Text-only: automatically disable streams and music (no voice = no screen share or music)
-        if (type === 'text') {
-          db.prepare('UPDATE channels SET channel_type = ?, streams_enabled = 0, music_enabled = 0 WHERE id = ?').run(type, channel.id);
-        } else {
-          // Switching away from any type: restore streams and music to on
-          db.prepare('UPDATE channels SET channel_type = ?, streams_enabled = 1, music_enabled = 1 WHERE id = ?').run(type, channel.id);
-        }
-        broadcastChannelLists();
-        const labels = { standard: '⚡ Channel type reset to standard', text: '💬 Channel set to text-only', voice: '🎤 Channel set to voice-only' };
-        socket.emit('toast', { message: labels[type], type: 'success' });
-      } catch (err) {
-        console.error('Set channel type error:', err);
-        socket.emit('error-msg', 'Failed to set channel type');
       }
     });
 

@@ -6,8 +6,8 @@ async _joinVoice() {
   if (!this.currentChannel) return;
   // Block voice join in text-only channels
   const _jvChk = this.channels.find(c => c.code === this.currentChannel);
-  if (_jvChk && _jvChk.channel_type === 'text') {
-    this._showToast('Voice is not available in text-only channels', 'error');
+  if (_jvChk && _jvChk.voice_enabled === 0) {
+    this._showToast('Voice is disabled in this channel', 'error');
     return;
   }
   // voice.join() auto-leaves old channel if connected

@@ -1927,11 +1927,19 @@
     <button class="channel-ctx-item admin-only" data-action="promote-channel" style="display:none">⬆️ Promote to Channel</button>
     <button class="channel-ctx-item admin-only" data-action="channel-functions">⚙️ Channel Functions <span class="cfn-arrow">▶</span></button>
     <div id="channel-functions-panel" class="channel-functions-panel" style="display:none">
-      <div class="cfn-row" data-fn="streams" title="Allow screen sharing and camera in this channel">
+      <div class="cfn-row" data-fn="voice" title="Enable or disable voice chat in this channel">
+        <span class="cfn-label">🎙️ Voice</span>
+        <span class="cfn-badge cfn-on">ON</span>
+      </div>
+      <div class="cfn-row" data-fn="text" title="Enable or disable text chat in this channel">
+        <span class="cfn-label">💬 Text</span>
+        <span class="cfn-badge cfn-on">ON</span>
+      </div>
+      <div class="cfn-row" data-fn="streams" title="Allow screen sharing and camera (requires voice)">
         <span class="cfn-label">🖥️ Streams</span>
         <span class="cfn-badge cfn-on">ON</span>
       </div>
-      <div class="cfn-row" data-fn="music" title="Allow Listen Together / music playback in this channel">
+      <div class="cfn-row" data-fn="music" title="Allow Listen Together / music playback (requires voice)">
         <span class="cfn-label">🎵 Music</span>
         <span class="cfn-badge cfn-on">ON</span>
       </div>
@@ -1939,21 +1947,13 @@
         <span class="cfn-label">🖼️ Media</span>
         <span class="cfn-badge cfn-on">ON</span>
       </div>
+      <div class="cfn-divider"></div>
       <div class="cfn-row" data-fn="slow-mode" title="Require a cooldown between messages (0 = off)">
         <span class="cfn-label">🐢 Slow Mode</span>
         <span class="cfn-badge cfn-off">OFF</span>
       </div>
       <div class="cfn-row" data-fn="cleanup-exempt" title="Protect this channel from automatic message cleanup">
         <span class="cfn-label">🛡️ Cleanup Guard</span>
-        <span class="cfn-badge cfn-off">OFF</span>
-      </div>
-      <div class="cfn-divider"></div>
-      <div class="cfn-row" data-fn="text-only" title="Text messages only — voice, streams, and music are disabled">
-        <span class="cfn-label">💬 Text Only</span>
-        <span class="cfn-badge cfn-off">OFF</span>
-      </div>
-      <div class="cfn-row" data-fn="voice-only" title="Voice only — text chat is disabled for regular users">
-        <span class="cfn-label">🎤 Voice Only</span>
         <span class="cfn-badge cfn-off">OFF</span>
       </div>
       <div class="cfn-row" data-fn="user-limit" title="Limit simultaneous voice users (click to set; blank = unlimited)">

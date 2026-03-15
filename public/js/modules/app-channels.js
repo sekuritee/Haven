@@ -42,13 +42,13 @@ async switchChannel(code) {
   } else {
     // Show just the join button (not the indicator), but hide it for text-only channels
     const _scJoinBtn = document.getElementById('voice-join-btn');
-    if (_scJoinBtn) _scJoinBtn.style.display = channel && channel.channel_type === 'text' ? 'none' : 'inline-flex';
+    if (_scJoinBtn) _scJoinBtn.style.display = channel && channel.voice_enabled === 0 ? 'none' : 'inline-flex';
     const indic = document.getElementById('voice-active-indicator');
     if (indic) indic.style.display = 'none';
     const vp = document.getElementById('voice-panel');
     if (vp) vp.style.display = 'none';
     const mobileJoin = document.getElementById('voice-join-mobile');
-    if (mobileJoin) mobileJoin.style.display = channel && channel.channel_type === 'text' ? 'none' : '';
+    if (mobileJoin) mobileJoin.style.display = channel && channel.voice_enabled === 0 ? 'none' : '';
   }
   document.getElementById('search-toggle-btn').style.display = '';
   document.getElementById('pinned-toggle-btn').style.display = '';
@@ -58,7 +58,7 @@ async switchChannel(code) {
 
   // Show/hide message input for voice-only channels
   const msgInputArea = document.getElementById('message-input-area');
-  if (msgInputArea) msgInputArea.style.display = channel && channel.channel_type === 'voice' ? 'none' : '';
+  if (msgInputArea) msgInputArea.style.display = channel && channel.text_enabled === 0 ? 'none' : '';
 
   const messagesEl = document.getElementById('messages');
   messagesEl.innerHTML = '';
@@ -239,8 +239,8 @@ _openChannelCtxMenu(code, btnEl) {
   const leaveVoiceBtn = menu.querySelector('[data-action="leave-voice"]');
   const inVoice = this.voice && this.voice.inVoice;
   const inThisChannel = inVoice && this.voice.currentChannel === code;
-  const isTextOnly = ch && ch.channel_type === 'text';
-  if (joinVoiceBtn) joinVoiceBtn.style.display = (inThisChannel || isTextOnly) ? 'none' : '';
+  const isVoiceOff = ch && ch.voice_enabled === 0;
+  if (joinVoiceBtn) joinVoiceBtn.style.display = (inThisChannel || isVoiceOff) ? 'none' : '';
   if (leaveVoiceBtn) leaveVoiceBtn.style.display = inVoice ? '' : 'none';
   // Position near the button
   const rect = btnEl.getBoundingClientRect();
@@ -274,6 +274,11 @@ _setCfnBadge(fn, isOn, text) {
 
 _updateChannelFunctionsPanel(ch) {
   if (!ch) return;
+  // Voice & text toggles
+  const voiceOff = ch.voice_enabled === 0;
+  const textOff = ch.text_enabled === 0;
+  this._setCfnBadge('voice', !voiceOff, voiceOff ? 'OFF' : 'ON');
+  this._setCfnBadge('text', !textOff, textOff ? 'OFF' : 'ON');
   // Basic toggles
   this._setCfnBadge('streams', ch.streams_enabled !== 0, ch.streams_enabled !== 0 ? 'ON' : 'OFF');
   this._setCfnBadge('music', ch.music_enabled !== 0, ch.music_enabled !== 0 ? 'ON' : 'OFF');
@@ -281,28 +286,17 @@ _updateChannelFunctionsPanel(ch) {
   const interval = ch.slow_mode_interval || 0;
   this._setCfnBadge('slow-mode', interval > 0, interval > 0 ? `${interval}s` : 'OFF');
   this._setCfnBadge('cleanup-exempt', ch.cleanup_exempt === 1, ch.cleanup_exempt === 1 ? 'ON' : 'OFF');
-  // Channel type
-  const isTextOnly = ch.channel_type === 'text';
-  const isVoiceOnly = ch.channel_type === 'voice';
-  this._setCfnBadge('text-only', isTextOnly, isTextOnly ? 'ON' : 'OFF');
-  this._setCfnBadge('voice-only', isVoiceOnly, isVoiceOnly ? 'ON' : 'OFF');
-  // Streams greyed when text-only (no voice = no screen share)
+  // Streams and music greyed when voice is disabled (they depend on voice)
   const streamsRow = document.querySelector('.cfn-row[data-fn="streams"]');
-  if (streamsRow) streamsRow.classList.toggle('cfn-disabled', isTextOnly);
-  // Music greyed when text-only (music requires voice)
+  if (streamsRow) streamsRow.classList.toggle('cfn-disabled', voiceOff);
   const musicRow = document.querySelector('.cfn-row[data-fn="music"]');
-  if (musicRow) musicRow.classList.toggle('cfn-disabled', isTextOnly);
-  // Text-only and voice-only are mutually exclusive
-  const voiceOnlyRow = document.querySelector('.cfn-row[data-fn="voice-only"]');
-  const textOnlyRow = document.querySelector('.cfn-row[data-fn="text-only"]');
-  if (voiceOnlyRow) voiceOnlyRow.classList.toggle('cfn-disabled', isTextOnly);
-  if (textOnlyRow) textOnlyRow.classList.toggle('cfn-disabled', isVoiceOnly);
+  if (musicRow) musicRow.classList.toggle('cfn-disabled', voiceOff);
   // Voice Limit (0 = unlimited = ∞; minimum meaningful limit is 2)
   const limit = ch.voice_user_limit || 0;
   this._setCfnBadge('user-limit', limit >= 2, limit >= 2 ? String(limit) : '∞');
-  // User limit greyed for text-only (no voice = no limit needed)
+  // User limit greyed when voice is disabled
   const userLimitRow = document.querySelector('.cfn-row[data-fn="user-limit"]');
-  if (userLimitRow) userLimitRow.classList.toggle('cfn-disabled', isTextOnly);
+  if (userLimitRow) userLimitRow.classList.toggle('cfn-disabled', voiceOff);
   // Announcement channel
   const isAnnouncement = ch.notification_type === 'announcement';
   this._setCfnBadge('announcement', isAnnouncement, isAnnouncement ? 'ON' : 'OFF');
@@ -310,6 +304,8 @@ _updateChannelFunctionsPanel(ch) {
 
 _closeChannelCtxMenu() {
   if (this._ctxMenuEl) this._ctxMenuEl.style.display = 'none';
+  const cfnPanel = document.getElementById('channel-functions-panel');
+  if (cfnPanel) cfnPanel.style.display = 'none';
   this._ctxMenuChannel = null;
 },
 
@@ -1159,7 +1155,7 @@ _renderChannels() {
     // Double-click to join voice in the channel (blocked for text-only)
     el.addEventListener('dblclick', () => {
       const _dblCh = this.channels.find(c => c.code === ch.code);
-      if (_dblCh && _dblCh.channel_type === 'text') return;
+      if (_dblCh && _dblCh.voice_enabled === 0) return;
       this.switchChannel(ch.code);
       setTimeout(() => this._joinVoice(), 300);
     });

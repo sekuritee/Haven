@@ -3737,13 +3737,16 @@ html.rgb-cycling *::after {
   white-space: nowrap;
 }
 
-/* ── Channel Functions inline panel ── */
+/* ── Channel Functions popout panel ── */
 .channel-functions-panel {
-  margin: 2px 4px 4px;
-  background: var(--bg-tertiary);
+  position: fixed;
+  background: var(--bg-secondary);
   border-radius: 6px;
   padding: 3px 0;
   border: 1px solid var(--border);
+  box-shadow: 0 4px 16px rgba(0,0,0,0.35);
+  z-index: 10000;
+  min-width: 170px;
 }
 .cfn-divider {
   border-top: 1px solid var(--border);

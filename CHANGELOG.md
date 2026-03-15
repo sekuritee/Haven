@@ -11,6 +11,17 @@ Format follows [Keep a Changelog](https://keepachangelog.com/). Haven uses [Sema
 
 ---
 
+## [2.7.6] — 2026-03-15
+
+### Added
+- **Per-feature channel toggles** — replaced the old "text only" / "voice only" channel modes with individual toggles for each feature: Voice, Text, Streams, Music, and Media. Admins can now mix and match any combination (e.g. media-only channels, voice + media but no text, etc.). Streams and Music automatically depend on Voice — disabling voice will disable both, and they can't be re-enabled until voice is turned back on.
+- **Sideways popout menu for Channel Functions** — the channel functions panel now pops out to the side of the context menu instead of expanding vertically inline, keeping the menu compact.
+
+### Fixed
+- **Legacy channel type migration** — existing channels that were set to "text only" or "voice only" are automatically migrated to the new individual toggle system on server startup.
+
+---
+
 ## [2.7.5] — 2026-03-14
 
 ### Added
