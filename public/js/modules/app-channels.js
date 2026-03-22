@@ -642,10 +642,10 @@ _openOrganizeModal(parentCode, serverLevel) {
 
     document.getElementById('organize-modal-title').textContent = '📋 Organize Channels';
     document.getElementById('organize-modal-parent-name').textContent = 'Reorder channels and assign category tags';
-    // Server-level sort is stored in localStorage (no single parent channel to hold it)
+    // Server-level sort: check for personal override, else use server default
     const sortSel = document.getElementById('organize-global-sort');
-    const savedSort = localStorage.getItem('haven_server_sort_mode') || 'manual';
-    sortSel.value = savedSort;
+    const localOverride = localStorage.getItem('haven_server_sort_mode');
+    sortSel.value = localOverride || 'server_default';
     const catSortSel = document.getElementById('organize-cat-sort');
     if (catSortSel) catSortSel.value = this._organizeCatSort;
     document.getElementById('organize-tag-input').value = '';
@@ -693,7 +693,9 @@ _openOrganizeModal(parentCode, serverLevel) {
 
 _renderOrganizeList() {
   const listEl = document.getElementById('organize-channel-list');
-  const globalSort = document.getElementById('organize-global-sort').value;
+  let globalSort = document.getElementById('organize-global-sort').value;
+  // Resolve "server_default" to the actual server sort mode
+  if (globalSort === 'server_default') globalSort = this.serverSettings?.channel_sort_mode || 'manual';
 
   let displayList = [...(this._organizeList || [])];
 
@@ -888,7 +890,8 @@ _renderOrganizeList() {
  * the effective sort mode, plus the sort mode string.
  */
 _getOrganizeVisualGroup(ch) {
-  const globalSort = document.getElementById('organize-global-sort').value;
+  let globalSort = document.getElementById('organize-global-sort').value;
+  if (globalSort === 'server_default') globalSort = this.serverSettings?.channel_sort_mode || 'manual';
   const tagKey = ch.category || '__untagged__';
   const effectiveSort = this._organizeTagSorts[tagKey] || globalSort;
 
@@ -1224,7 +1227,8 @@ _renderChannels() {
   });
 
   // Sort parent channels — respect server-level sort mode & per-tag overrides
-  const serverSortMode = localStorage.getItem('haven_server_sort_mode') || 'manual';
+  const localSortOverride = localStorage.getItem('haven_server_sort_mode');
+  const serverSortMode = localSortOverride || this.serverSettings?.channel_sort_mode || 'manual';
   const serverTagOverrides = JSON.parse(localStorage.getItem('haven_tag_sorts___server__') || '{}');
   const parentHasTags = parentChannels.some(c => c.category);
 

@@ -340,6 +340,9 @@ _applyServerSettings() {
   // Re-evaluate update banner visibility whenever settings change
   this._applyUpdateBanner();
 
+  // Re-render channels in case sort mode changed
+  if (!localStorage.getItem('haven_server_sort_mode')) this._renderChannels();
+
   if (!modalOpen && this.user && (this.user.isAdmin || this._hasPerm('manage_server'))) {
     this.socket.emit('get-whitelist');
   }

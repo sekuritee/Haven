@@ -522,7 +522,8 @@ _setupSocketListeners() {
         ? this.channels.find(c => c.id === msgChannel.parent_channel_id)
         : null;
       if ((parent && parent.sort_alphabetical === 4) ||
-          (!msgChannel.parent_channel_id && localStorage.getItem('haven_server_sort_mode') === 'dynamic')) {
+          (!msgChannel.parent_channel_id && (localStorage.getItem('haven_server_sort_mode') === 'dynamic' ||
+            (!localStorage.getItem('haven_server_sort_mode') && this.serverSettings?.channel_sort_mode === 'dynamic')))) {
         this._renderChannels();
       }
     }

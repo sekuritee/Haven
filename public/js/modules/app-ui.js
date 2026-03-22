@@ -425,10 +425,19 @@ _setupUI() {
   // Organize modal controls
   document.getElementById('organize-global-sort')?.addEventListener('change', (e) => {
     if (!this._organizeParentCode) return;
-    const sortMode = e.target.value; // 'manual', 'alpha', 'created', 'oldest'
+    const sortMode = e.target.value; // 'server_default', 'manual', 'alpha', 'created', 'oldest', 'dynamic'
     if (this._organizeServerLevel) {
-      // Server-level sort: store in localStorage (no parent channel to hold it)
-      localStorage.setItem('haven_server_sort_mode', sortMode);
+      if (sortMode === 'server_default') {
+        // Use server default — remove any personal override
+        localStorage.removeItem('haven_server_sort_mode');
+      } else if (this.user?.isAdmin || this._hasPerm('manage_server')) {
+        // Admin: update the server-wide default sort mode
+        this.socket.emit('update-server-setting', { key: 'channel_sort_mode', value: sortMode });
+        localStorage.removeItem('haven_server_sort_mode');
+      } else {
+        // Non-admin: save as personal override only
+        localStorage.setItem('haven_server_sort_mode', sortMode);
+      }
     } else {
       // Sub-channel sort: store on the parent channel (server-side)
       this.socket.emit('set-sort-alphabetical', { code: this._organizeParentCode, enabled: sortMode === 'alpha', mode: sortMode });
@@ -436,6 +445,7 @@ _setupUI() {
       if (parent) parent.sort_alphabetical = sortMode === 'alpha' ? 1 : sortMode === 'created' ? 2 : sortMode === 'oldest' ? 3 : sortMode === 'dynamic' ? 4 : 0;
     }
     this._renderOrganizeList();
+    if (this._organizeServerLevel) this._renderChannels();
   });
   document.getElementById('organize-cat-sort')?.addEventListener('change', (e) => {
     if (!this._organizeParentCode) return;
