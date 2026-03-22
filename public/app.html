@@ -249,8 +249,8 @@
             <button id="mobile-settings-btn" class="sidebar-bottom-btn mobile-settings-btn" title="Settings">⚙️</button>
             <button id="donors-btn" class="sidebar-bottom-btn donate-btn">❤️</button>
             <span style="flex:1"></span>
-            <button id="voice-mute-btn" class="sidebar-bottom-btn voice-header-btn" title="Mute">🎙️</button>
-            <button id="voice-deafen-btn" class="sidebar-bottom-btn voice-header-btn" title="Deafen">🔊</button>
+            <button id="voice-mute-btn" class="sidebar-bottom-btn voice-header-btn" title="Mute" style="display:none">🎙️</button>
+            <button id="voice-deafen-btn" class="sidebar-bottom-btn voice-header-btn" title="Deafen" style="display:none">🔊</button>
           </div>
         </div>
       </aside>
@@ -495,12 +495,16 @@
       <!-- ─── Right Sidebar ───────────────────────────── -->
       <aside class="right-sidebar" id="right-sidebar">
         <div class="right-sidebar-resize-handle" id="right-sidebar-resize-handle"></div>
-        <!-- Voice users section (mobile: shows mute/deafen controls + join button) -->
+        <!-- Voice users section -->
         <div class="right-sidebar-voice" id="right-sidebar-voice">
           <div class="panel">
             <div class="voice-panel-header">
               <h5 class="panel-title" style="margin-bottom:0">🔊 Voice</h5>
               <button id="mobile-right-close" class="mobile-panel-close mobile-panel-close-right" title="Close" aria-label="Close panel">&times;</button>
+              <div class="voice-header-actions">
+                <button id="voice-mute-btn-header" class="voice-header-btn" title="Mute" style="display:none">🎙️</button>
+                <button id="voice-deafen-btn-header" class="voice-header-btn" title="Deafen" style="display:none">🔊</button>
+              </div>
             </div>
             <button id="voice-join-mobile" class="btn-voice mobile-voice-join" style="display:none">🎤 Join Voice</button>
             <div id="voice-users" class="user-list">
@@ -1083,6 +1087,16 @@
             <input type="checkbox" id="auto-accept-streams" checked>
           </label>
           <small class="settings-hint" style="display:block;margin-bottom:6px">Automatically open screen shares when someone starts streaming. Turn off to join manually.</small>
+          <label class="toggle-row">
+            <span>Hide Voice Panel</span>
+            <input type="checkbox" id="hide-voice-panel">
+          </label>
+          <small class="settings-hint" style="display:block;margin-bottom:6px">Hide the voice users panel on desktop. Voice users are still shown in channel indicators.</small>
+          <label class="toggle-row">
+            <span>Sidebar Voice Controls</span>
+            <input type="checkbox" id="sidebar-voice-controls">
+          </label>
+          <small class="settings-hint" style="display:block;margin-bottom:6px">Show mute/deafen buttons in the sidebar instead of the voice panel header.</small>
           <label class="volume-row">
             <span>Volume</span>
             <input type="range" id="notif-volume" min="0" max="100" value="50" class="slider-sm">

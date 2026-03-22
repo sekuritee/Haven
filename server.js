@@ -2115,20 +2115,6 @@ if (useSSL) {
     server = createHttpsServer(sslOptions, app);
     console.log('🔒 HTTPS enabled');
 
-    // Redirect plain HTTP clients that accidentally hit the HTTPS port
-    server.on('tlsClientError', (err, tlsSocket) => {
-      if (tlsSocket.writable) {
-        const host = tlsSocket.localAddress || 'localhost';
-        tlsSocket.write(
-          'HTTP/1.1 301 Moved Permanently\r\n' +
-          `Location: https://${host}:${safePort}/\r\n` +
-          'Content-Length: 0\r\n' +
-          'Connection: close\r\n\r\n'
-        );
-        tlsSocket.destroy();
-      }
-    });
-
     // Also start an HTTP server that redirects to HTTPS (hardened)
     const httpRedirect = express();
     httpRedirect.disable('x-powered-by');

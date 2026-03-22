@@ -58,14 +58,6 @@ _toggleMute() {
     if (this.voice.isMuted) this.voice.toggleMute();
     if (this.voice.isDeafened) this.voice.toggleDeafen();
     this._mutedByDeafen = false;
-    const muteBtn = document.getElementById('voice-mute-btn');
-    muteBtn.textContent = '🎙️';
-    muteBtn.title = 'Mute';
-    muteBtn.classList.remove('muted');
-    const deafBtn = document.getElementById('voice-deafen-btn');
-    deafBtn.textContent = '🔊';
-    deafBtn.title = 'Deafen';
-    deafBtn.classList.remove('muted');
     this.notifications.playDirect('mute_off');
     if (this.voice.currentChannel) {
       this.socket.emit('voice-mute-state', { code: this.voice.currentChannel, muted: false });
@@ -74,15 +66,12 @@ _toggleMute() {
   } else {
     const muted = this.voice.toggleMute();
     if (!muted) this._mutedByDeafen = false;
-    const btn = document.getElementById('voice-mute-btn');
-    btn.textContent = '🎙️';
-    btn.title = muted ? 'Unmute' : 'Mute';
-    btn.classList.toggle('muted', muted);
     this.notifications.playDirect(muted ? 'mute_on' : 'mute_off');
     if (this.voice.currentChannel) {
       this.socket.emit('voice-mute-state', { code: this.voice.currentChannel, muted });
     }
   }
+  this._syncMuteDeafenButtons();
   this._updateVoiceBar();
 },
 
@@ -92,21 +81,12 @@ _toggleDeafen() {
     // Undeafening
     this.voice.toggleDeafen();
     if (this._mutedByDeafen) {
-      // Auto-mute was applied when deafening — remove it too
       if (this.voice.isMuted) this.voice.toggleMute();
       this._mutedByDeafen = false;
-      const muteBtn = document.getElementById('voice-mute-btn');
-      muteBtn.textContent = '🎙️';
-      muteBtn.title = 'Mute';
-      muteBtn.classList.remove('muted');
       if (this.voice.currentChannel) {
         this.socket.emit('voice-mute-state', { code: this.voice.currentChannel, muted: false });
       }
     }
-    const btn = document.getElementById('voice-deafen-btn');
-    btn.textContent = '🔊';
-    btn.title = 'Deafen';
-    btn.classList.remove('muted');
     this.notifications.playDirect('deafen_off');
     if (this.voice.currentChannel) {
       this.socket.emit('voice-deafen-state', { code: this.voice.currentChannel, deafened: false });
@@ -114,28 +94,40 @@ _toggleDeafen() {
   } else {
     // Deafening
     if (!this.voice.isMuted) {
-      // Auto-mute and remember it was caused by deafen
       this.voice.toggleMute();
       this._mutedByDeafen = true;
-      const muteBtn = document.getElementById('voice-mute-btn');
-      muteBtn.textContent = '🎙️';
-      muteBtn.title = 'Unmute';
-      muteBtn.classList.add('muted');
       if (this.voice.currentChannel) {
         this.socket.emit('voice-mute-state', { code: this.voice.currentChannel, muted: true });
       }
     }
     this.voice.toggleDeafen();
-    const btn = document.getElementById('voice-deafen-btn');
-    btn.textContent = '🔇';
-    btn.title = 'Undeafen';
-    btn.classList.add('muted');
     this.notifications.playDirect('deafen_on');
     if (this.voice.currentChannel) {
       this.socket.emit('voice-deafen-state', { code: this.voice.currentChannel, deafened: true });
     }
   }
+  this._syncMuteDeafenButtons();
   this._updateVoiceBar();
+},
+
+/** Update all mute/deafen button instances (sidebar + header) to reflect current state */
+_syncMuteDeafenButtons() {
+  const isMuted = this.voice.isMuted;
+  const isDeafened = this.voice.isDeafened;
+  ['voice-mute-btn', 'voice-mute-btn-header'].forEach(id => {
+    const btn = document.getElementById(id);
+    if (!btn) return;
+    btn.textContent = '🎙️';
+    btn.title = isMuted ? 'Unmute' : 'Mute';
+    btn.classList.toggle('muted', isMuted);
+  });
+  ['voice-deafen-btn', 'voice-deafen-btn-header'].forEach(id => {
+    const btn = document.getElementById(id);
+    if (!btn) return;
+    btn.textContent = isDeafened ? '🔇' : '🔊';
+    btn.title = isDeafened ? 'Undeafen' : 'Deafen';
+    btn.classList.toggle('muted', isDeafened);
+  });
 },
 
 _updateVoiceButtons(inVoice) {
@@ -148,17 +140,34 @@ _updateVoiceButtons(inVoice) {
   const voicePanel = document.getElementById('voice-panel');
   if (voicePanel) voicePanel.style.display = inVoice ? 'flex' : 'none';
 
+  const useSidebar = localStorage.getItem('haven_sidebar_voice_controls') === 'true';
+
+  // Show/hide mute/deafen header buttons (voice panel — default location)
+  const voiceHeaderMute = document.getElementById('voice-mute-btn-header');
+  if (voiceHeaderMute) voiceHeaderMute.style.display = (inVoice && !useSidebar) ? '' : 'none';
+  const voiceHeaderDeafen = document.getElementById('voice-deafen-btn-header');
+  if (voiceHeaderDeafen) voiceHeaderDeafen.style.display = (inVoice && !useSidebar) ? '' : 'none';
+
+  // Show/hide mute/deafen sidebar buttons (opt-in)
+  const sidebarMute = document.getElementById('voice-mute-btn');
+  if (sidebarMute) sidebarMute.style.display = (inVoice && useSidebar) ? '' : 'none';
+  const sidebarDeafen = document.getElementById('voice-deafen-btn');
+  if (sidebarDeafen) sidebarDeafen.style.display = (inVoice && useSidebar) ? '' : 'none';
+
   // Mobile voice join in right sidebar
   const mobileJoin = document.getElementById('voice-join-mobile');
   if (mobileJoin) mobileJoin.style.display = inVoice ? 'none' : '';
 
   if (!inVoice) {
-    document.getElementById('voice-mute-btn').textContent = '🎙️';
-    document.getElementById('voice-mute-btn').title = 'Mute';
-    document.getElementById('voice-mute-btn').classList.remove('muted');
-    document.getElementById('voice-deafen-btn').textContent = '🔊';
-    document.getElementById('voice-deafen-btn').title = 'Deafen';
-    document.getElementById('voice-deafen-btn').classList.remove('muted');
+    // Reset all mute/deafen buttons (sidebar + header)
+    ['voice-mute-btn', 'voice-mute-btn-header'].forEach(id => {
+      const b = document.getElementById(id);
+      if (b) { b.textContent = '🎙️'; b.title = 'Mute'; b.classList.remove('muted'); }
+    });
+    ['voice-deafen-btn', 'voice-deafen-btn-header'].forEach(id => {
+      const b = document.getElementById(id);
+      if (b) { b.textContent = '🔊'; b.title = 'Deafen'; b.classList.remove('muted'); }
+    });
     document.getElementById('screen-share-btn').textContent = '🖥️';
     document.getElementById('screen-share-btn').title = 'Share Screen';
     document.getElementById('screen-share-btn').classList.remove('sharing');

@@ -725,6 +725,8 @@ _setupUI() {
   });
   document.getElementById('voice-mute-btn').addEventListener('click', () => this._toggleMute());
   document.getElementById('voice-deafen-btn').addEventListener('click', () => this._toggleDeafen());
+  document.getElementById('voice-mute-btn-header')?.addEventListener('click', () => this._toggleMute());
+  document.getElementById('voice-deafen-btn-header')?.addEventListener('click', () => this._toggleDeafen());
   document.getElementById('voice-leave-sidebar-btn').addEventListener('click', () => this._leaveVoice());
   document.getElementById('voice-cam-btn').addEventListener('click', () => this._toggleWebcam());
   document.getElementById('screen-share-btn').addEventListener('click', () => this._toggleScreenShare());
@@ -1045,7 +1047,7 @@ _setupUI() {
   // Wire up talking indicator
   this.voice.onTalkingChange = (userId, isTalking) => {
     const resolvedId = userId === 'self' ? this.user.id : userId;
-    document.querySelectorAll(`.channel-voice-user[data-user-id="${resolvedId}"]`).forEach(el => {
+    document.querySelectorAll(`.channel-voice-user[data-user-id="${resolvedId}"], .voice-user-item[data-user-id="${resolvedId}"]`).forEach(el => {
       el.classList.toggle('talking', isTalking);
     });
   };

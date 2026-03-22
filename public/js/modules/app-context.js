@@ -277,6 +277,35 @@ _setupNotifications() {
       localStorage.setItem('haven_auto_accept_streams', String(autoAcceptToggle.checked));
     });
   }
+
+  // Hide voice panel (opt-in)
+  const hideVoicePanelToggle = document.getElementById('hide-voice-panel');
+  if (hideVoicePanelToggle) {
+    hideVoicePanelToggle.checked = localStorage.getItem('haven_hide_voice_panel') === 'true';
+    hideVoicePanelToggle.addEventListener('change', () => {
+      localStorage.setItem('haven_hide_voice_panel', String(hideVoicePanelToggle.checked));
+      const voicePanel = document.getElementById('right-sidebar-voice');
+      if (voicePanel) voicePanel.style.display = hideVoicePanelToggle.checked ? 'none' : '';
+    });
+    // Apply on load
+    if (hideVoicePanelToggle.checked) {
+      const voicePanel = document.getElementById('right-sidebar-voice');
+      if (voicePanel) voicePanel.style.display = 'none';
+    }
+  }
+
+  // Sidebar voice controls (opt-in)
+  const sidebarVoiceToggle = document.getElementById('sidebar-voice-controls');
+  if (sidebarVoiceToggle) {
+    sidebarVoiceToggle.checked = localStorage.getItem('haven_sidebar_voice_controls') === 'true';
+    sidebarVoiceToggle.addEventListener('change', () => {
+      localStorage.setItem('haven_sidebar_voice_controls', String(sidebarVoiceToggle.checked));
+      // Re-apply button visibility for current voice state
+      if (this.voice && this.voice.inVoice) {
+        this._updateVoiceButtons(true);
+      }
+    });
+  }
 },
 
 // ── Push Notifications (Web Push API) ──────────────────

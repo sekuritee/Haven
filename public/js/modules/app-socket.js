@@ -546,6 +546,10 @@ _setupSocketListeners() {
   });
 
   this.socket.on('voice-users-update', (data) => {
+    // Render voice panel unless the user opted to hide it
+    if (data.channelCode === this.currentChannel && localStorage.getItem('haven_hide_voice_panel') !== 'true') {
+      this._renderVoiceUsers(data.users);
+    }
     // Keep voice bar up to date
     if (this.voice && this.voice.inVoice && this.voice.currentChannel === data.channelCode) {
       this._updateVoiceBar();
