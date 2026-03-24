@@ -11,6 +11,20 @@ Format follows [Keep a Changelog](https://keepachangelog.com/). Haven uses [Sema
 
 ---
 
+## [2.8.2] — 2026-03-24
+
+### Added
+- **Camera device selector** (#189) — users can now select their preferred camera from Settings → Voice & Video.
+
+### Fixed
+- **TTS looping** — `/tts` messages are now capped at 500 characters (server + client), and any in-progress speech is cancelled before a new one starts, preventing the infinite loop from very long messages.
+- **TTS `@` mentions** — `@username` in TTS messages is now read as just the name instead of "at username".
+- **`/spoiler` in E2E-encrypted DMs** — slash commands like `/spoiler` now work correctly in end-to-end encrypted DMs (they were previously sent as raw command text).
+- **Channel sort mode sync** — channel sort order is now stored server-side and synced to all clients; admin changes broadcast to everyone in real time. Non-admins can still override locally.
+- **Status bar in Desktop windowed mode** (#190) — the bottom status bar now displays correctly when the Desktop app is not maximized.
+
+---
+
 ## [2.8.1] — 2026-03-21
 
 ### Added
