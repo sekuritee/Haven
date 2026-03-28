@@ -11,6 +11,18 @@ Format follows [Keep a Changelog](https://keepachangelog.com/). Haven uses [Sema
 
 ---
 
+## [2.8.3] — 2026-03-27
+
+### Added
+- **Bulk emoji upload** (#202) — new "Bulk Upload" button in the Emoji Management modal lets admins select multiple image files at once. Names are auto-generated from filenames (lowercase, stripped of special characters). Skips files that exceed the server's max emoji size.
+- **TTS permission** (#192) — new `use_tts` role permission (default ON for all users via the User role). Admins can revoke it per-role to prevent specific users from using `/tts`. Existing servers get the permission auto-granted on startup.
+- **`/tts:stop` command** (#192) — instantly cancels any in-progress text-to-speech playback. Client-side only, no message sent.
+
+### Fixed
+- **Shippy Container popout** — the "Pop Out" button on the game iframe now checks if the popup window actually opened before closing the inline game. If the browser blocks the popup, the game stays in the iframe and a toast explains the issue instead of silently closing the game.
+
+---
+
 ## [2.8.2] — 2026-03-24
 
 ### Added

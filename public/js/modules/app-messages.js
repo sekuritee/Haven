@@ -15,6 +15,16 @@ async _sendMessage() {
 
   // Client-side slash commands (not sent to server)
   if (content.startsWith('/')) {
+    // /tts:stop — cancel all speech synthesis immediately
+    if (content.trim().toLowerCase() === '/tts:stop') {
+      this.notifications?.stopTTS();
+      this._showToast('TTS stopped', 'info');
+      input.value = '';
+      input.style.height = 'auto';
+      this._hideMentionDropdown();
+      this._hideSlashDropdown();
+      return;
+    }
     const parts = content.match(/^\/(\w+)(?:\s+(.*))?$/);
     if (parts) {
       const cmd = parts[1].toLowerCase();

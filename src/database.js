@@ -439,7 +439,7 @@ function initDatabase() {
     db.prepare('UPDATE roles SET auto_assign = 1 WHERE id = ?').run(userRole.lastInsertRowid);
     const userPerms = [
       'delete_own_messages', 'edit_own_messages', 'upload_files',
-      'use_voice', 'view_history'
+      'use_voice', 'view_history', 'use_tts'
     ];
     userPerms.forEach(p => insertPerm.run(userRole.lastInsertRowid, p));
   }
@@ -726,6 +726,15 @@ function initDatabase() {
   } catch {
     db.exec("ALTER TABLE channels ADD COLUMN voice_bitrate INTEGER DEFAULT 0");
   }
+
+  // ── Migration: grant use_tts to all auto-assign roles (default ON) ──
+  try {
+    const autoAssignRoles = db.prepare('SELECT id FROM roles WHERE auto_assign = 1').all();
+    const insertPerm = db.prepare('INSERT OR IGNORE INTO role_permissions (role_id, permission, allowed) VALUES (?, ?, 1)');
+    for (const r of autoAssignRoles) {
+      insertPerm.run(r.id, 'use_tts');
+    }
+  } catch { /* non-critical */ }
 
   return db;
 }

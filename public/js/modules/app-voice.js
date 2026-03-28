@@ -2085,120 +2085,120 @@ _minimizeMusicPanel() {
   }
 },
 
-_popOutMusicPlayer() {
-  const panel = document.getElementById('music-panel');
-  const container = document.getElementById('music-embed-container');
-  if (!container || !container.innerHTML.trim()) {
-    this._showToast('No music playing', 'error');
-    return;
-  }
-
-  // If already in PiP overlay, pop back in
-  if (this._musicPip) {
-    this._popInMusicPlayer();
-    return;
-  }
-
-  // Create floating PiP overlay
-  const pip = document.createElement('div');
-  pip.id = 'music-pip-overlay';
-  pip.className = 'music-pip-overlay';
-
-  const volume = parseInt(document.getElementById('music-volume-slider')?.value ?? '80');
-  const platform = this._musicPlatform || 'Music';
-  const playing = this._musicPlaying;
-
-  const savedOpacity = parseInt(localStorage.getItem('haven_pip_opacity') ?? '100');
-
-  pip.innerHTML = `
-    <div class="music-pip-header" id="music-pip-drag">
-      <button class="music-pip-btn" id="music-pip-popin" title="Minimize (back to panel)">─</button>
-      <span class="music-pip-label">🎵 ${platform}</span>
-      <button class="music-pip-btn" id="music-pip-fullscreen" title="Fullscreen">⤢</button>
-      <button class="music-pip-btn" id="music-pip-close" title="Close / stop music">✕</button>
-    </div>
-    <div class="music-pip-embed" id="music-pip-embed"></div>
-    <div class="music-pip-controls">
-      <button class="music-pip-btn" id="music-pip-pp" title="Play/Pause">${playing ? '⏸' : '▶'}</button>
-      <span class="music-pip-vol-icon" id="music-pip-mute" title="Mute">🔊</span>
-      <input type="range" class="music-pip-vol" id="music-pip-vol" min="0" max="100" value="${volume}">
-      <span class="pip-opacity-divider"></span>
-      <span class="music-pip-vol-icon" id="music-pip-opacity-icon" title="Window opacity">👁</span>
-      <input type="range" class="music-pip-vol pip-opacity-slider" id="music-pip-opacity" min="20" max="100" value="${savedOpacity}">
-    </div>
-  `;
-
-  pip.style.opacity = savedOpacity / 100;
-
-  document.body.appendChild(pip);
-
-  // Move the embed wrapper (with live iframe) into the PiP overlay — no reload!
-  const embedWrapper = container.querySelector('.music-embed-wrapper');
-  if (embedWrapper) {
-    // Remove the click-blocking overlay so user can interact directly in PiP
-    const overlay = embedWrapper.querySelector('.music-embed-overlay');
-    if (overlay) overlay.style.display = 'none';
-    document.getElementById('music-pip-embed').appendChild(embedWrapper);
-  }
-
-  // Hide the original panel
-  panel.style.display = 'none';
-  this._showMusicIndicator();
-  this._musicPip = pip;
-
-  // Update popout button icon to show "pop-in"
-  const popBtn = document.getElementById('music-popout-btn');
-  if (popBtn) { popBtn.textContent = '⧈'; popBtn.title = 'Pop back in'; }
-
-  // ── PiP controls ──
-  document.getElementById('music-pip-popin').addEventListener('click', () => this._popInMusicPlayer());
-  document.getElementById('music-pip-close').addEventListener('click', () => this._stopMusic());
-  document.getElementById('music-pip-pp').addEventListener('click', () => {
-    this._toggleMusicPlayPause();
-    document.getElementById('music-pip-pp').textContent = this._musicPlaying ? '⏸' : '▶';
-  });
-  document.getElementById('music-pip-vol').addEventListener('input', (e) => {
-    this._setMusicVolume(parseInt(e.target.value));
-    document.getElementById('music-pip-mute').textContent = parseInt(e.target.value) === 0 ? '🔇' : '🔊';
-  });
-  document.getElementById('music-pip-mute').addEventListener('click', () => {
-    this._toggleMusicMute();
-    const v = parseInt(document.getElementById('music-volume-slider')?.value ?? '0');
-    document.getElementById('music-pip-vol').value = v;
-    document.getElementById('music-pip-mute').textContent = v === 0 ? '🔇' : '🔊';
-  });
-
-  // ── Opacity ──
-  document.getElementById('music-pip-opacity').addEventListener('input', (e) => {
-    const val = parseInt(e.target.value);
-    pip.style.opacity = val / 100;
-    localStorage.setItem('haven_pip_opacity', val);
-  });
-
-  // ── Fullscreen ──
-  const toggleMusicFS = () => {
-    const el = pip;
-    if (document.fullscreenElement === el) {
-      document.exitFullscreen().catch(() => {});
-    } else {
-      (el.requestFullscreen || el.webkitRequestFullscreen || el.msRequestFullscreen).call(el).catch(() => {});
+  _popOutMusicPlayer() {
+    const panel = document.getElementById('music-panel');
+    const container = document.getElementById('music-embed-container');
+    if (!container || !container.innerHTML.trim()) {
+      this._showToast('No music playing', 'error');
+      return;
     }
-  };
-  document.getElementById('music-pip-fullscreen').addEventListener('click', toggleMusicFS);
-  document.getElementById('music-pip-embed').addEventListener('dblclick', toggleMusicFS);
-  document.addEventListener('fullscreenchange', () => {
-    const fsBtn = document.getElementById('music-pip-fullscreen');
-    if (!fsBtn) return;
-    if (document.fullscreenElement === pip) {
-      fsBtn.textContent = '⤡'; fsBtn.title = 'Exit fullscreen';
-    } else {
-      fsBtn.textContent = '⤢'; fsBtn.title = 'Fullscreen';
-    }
-  });
 
-  // ── Dragging ──
-  this._initPipDrag(pip, document.getElementById('music-pip-drag'));
-},
+    // If already in PiP overlay, pop back in
+    if (this._musicPip) {
+      this._popInMusicPlayer();
+      return;
+    }
+
+    // Create floating PiP overlay
+    const pip = document.createElement('div');
+    pip.id = 'music-pip-overlay';
+    pip.className = 'music-pip-overlay';
+
+    const volume = parseInt(document.getElementById('music-volume-slider')?.value ?? '80');
+    const platform = this._musicPlatform || 'Music';
+    const playing = this._musicPlaying;
+
+    const savedOpacity = parseInt(localStorage.getItem('haven_pip_opacity') ?? '100');
+
+    pip.innerHTML = `
+      <div class="music-pip-header" id="music-pip-drag">
+        <button class="music-pip-btn" id="music-pip-popin" title="Minimize (back to panel)">─</button>
+        <span class="music-pip-label">🎵 ${platform}</span>
+        <button class="music-pip-btn" id="music-pip-fullscreen" title="Fullscreen">⤢</button>
+        <button class="music-pip-btn" id="music-pip-close" title="Close / stop music">✕</button>
+      </div>
+      <div class="music-pip-embed" id="music-pip-embed"></div>
+      <div class="music-pip-controls">
+        <button class="music-pip-btn" id="music-pip-pp" title="Play/Pause">${playing ? '⏸' : '▶'}</button>
+        <span class="music-pip-vol-icon" id="music-pip-mute" title="Mute">🔊</span>
+        <input type="range" class="music-pip-vol" id="music-pip-vol" min="0" max="100" value="${volume}">
+        <span class="pip-opacity-divider"></span>
+        <span class="music-pip-vol-icon" id="music-pip-opacity-icon" title="Window opacity">👁</span>
+        <input type="range" class="music-pip-vol pip-opacity-slider" id="music-pip-opacity" min="20" max="100" value="${savedOpacity}">
+      </div>
+    `;
+
+    pip.style.opacity = savedOpacity / 100;
+
+    document.body.appendChild(pip);
+
+    // Move the embed wrapper (with live iframe) into the PiP overlay — no reload!
+    const embedWrapper = container.querySelector('.music-embed-wrapper');
+    if (embedWrapper) {
+      // Remove the click-blocking overlay so user can interact directly in PiP
+      const overlay = embedWrapper.querySelector('.music-embed-overlay');
+      if (overlay) overlay.style.display = 'none';
+      document.getElementById('music-pip-embed').appendChild(embedWrapper);
+    }
+
+    // Hide the original panel
+    panel.style.display = 'none';
+    this._showMusicIndicator();
+    this._musicPip = pip;
+
+    // Update popout button icon to show "pop-in"
+    const popBtn = document.getElementById('music-popout-btn');
+    if (popBtn) { popBtn.textContent = '⧈'; popBtn.title = 'Pop back in'; }
+
+    // ── PiP controls ──
+    document.getElementById('music-pip-popin').addEventListener('click', () => this._popInMusicPlayer());
+    document.getElementById('music-pip-close').addEventListener('click', () => this._stopMusic());
+    document.getElementById('music-pip-pp').addEventListener('click', () => {
+      this._toggleMusicPlayPause();
+      document.getElementById('music-pip-pp').textContent = this._musicPlaying ? '⏸' : '▶';
+    });
+    document.getElementById('music-pip-vol').addEventListener('input', (e) => {
+      this._setMusicVolume(parseInt(e.target.value));
+      document.getElementById('music-pip-mute').textContent = parseInt(e.target.value) === 0 ? '🔇' : '🔊';
+    });
+    document.getElementById('music-pip-mute').addEventListener('click', () => {
+      this._toggleMusicMute();
+      const v = parseInt(document.getElementById('music-volume-slider')?.value ?? '0');
+      document.getElementById('music-pip-vol').value = v;
+      document.getElementById('music-pip-mute').textContent = v === 0 ? '🔇' : '🔊';
+    });
+
+    // ── Opacity ──
+    document.getElementById('music-pip-opacity').addEventListener('input', (e) => {
+      const val = parseInt(e.target.value);
+      pip.style.opacity = val / 100;
+      localStorage.setItem('haven_pip_opacity', val);
+    });
+
+    // ── Fullscreen ──
+    const toggleMusicFS = () => {
+      const el = pip;
+      if (document.fullscreenElement === el) {
+        document.exitFullscreen().catch(() => {});
+      } else {
+        (el.requestFullscreen || el.webkitRequestFullscreen || el.msRequestFullscreen).call(el).catch(() => {});
+      }
+    };
+    document.getElementById('music-pip-fullscreen').addEventListener('click', toggleMusicFS);
+    document.getElementById('music-pip-embed').addEventListener('dblclick', toggleMusicFS);
+    document.addEventListener('fullscreenchange', () => {
+      const fsBtn = document.getElementById('music-pip-fullscreen');
+      if (!fsBtn) return;
+      if (document.fullscreenElement === pip) {
+        fsBtn.textContent = '⤡'; fsBtn.title = 'Exit fullscreen';
+      } else {
+        fsBtn.textContent = '⤢'; fsBtn.title = 'Fullscreen';
+      }
+    });
+
+    // ── Dragging ──
+    this._initPipDrag(pip, document.getElementById('music-pip-drag'));
+  },
 
 _popInMusicPlayer() {
   const pip = this._musicPip;
@@ -2267,27 +2267,27 @@ _initPipDrag(pip, handle) {
   document.addEventListener('touchend', () => { dragging = false; });
 },
 
-_showMusicIndicator() {
-  let ind = document.getElementById('music-indicator');
-  if (ind) return; // already showing
-  ind = document.createElement('button');
-  ind.id = 'music-indicator';
-  ind.className = 'music-indicator';
-  ind.textContent = '🎵 Music playing';
-  ind.title = 'Click to show music player';
-  ind.addEventListener('click', () => {
-    // If PiP is active, pop back in first
-    if (this._musicPip) {
-      this._popInMusicPlayer();
-      return;
-    }
-    const panel = document.getElementById('music-panel');
-    panel.style.display = 'flex';
-    ind.remove();
-  });
-  // Append inside voice-controls so it groups with other header buttons
-  document.querySelector('.voice-controls')?.appendChild(ind);
-},
+  _showMusicIndicator() {
+    let ind = document.getElementById('music-indicator');
+    if (ind) return; // already showing
+    ind = document.createElement('button');
+    ind.id = 'music-indicator';
+    ind.className = 'music-indicator';
+    ind.textContent = '🎵 Music playing';
+    ind.title = 'Click to show music player';
+    ind.addEventListener('click', () => {
+      // If PiP is active, pop back in first
+      if (this._musicPip) {
+        this._popInMusicPlayer();
+        return;
+      }
+      const panel = document.getElementById('music-panel');
+      panel.style.display = 'flex';
+      ind.remove();
+    });
+    // Append inside voice-controls so it groups with other header buttons
+    document.querySelector('.voice-controls')?.appendChild(ind);
+  },
 
 _removeMusicIndicator() {
   document.getElementById('music-indicator')?.remove();

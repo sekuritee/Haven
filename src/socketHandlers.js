@@ -3655,7 +3655,7 @@ function setupSocketHandlers(io, db) {
             'rename_channel', 'rename_sub_channel', 'set_channel_topic', 'manage_sub_channels',
             'upload_files', 'use_voice', 'manage_webhooks', 'mention_everyone', 'view_history',
             'promote_user', 'transfer_admin', 'archive_messages', 'create_channel', 'manage_emojis', 'manage_soundboard',
-            'manage_roles', 'manage_server', 'delete_channel'
+            'manage_roles', 'manage_server', 'delete_channel', 'use_tts'
           ];
           for (const [k, v] of Object.entries(obj)) {
             if (!validPerms.includes(k)) return;
@@ -5111,7 +5111,7 @@ function setupSocketHandlers(io, db) {
           'kick_user', 'mute_user', 'ban_user', 'delete_message', 'delete_own_messages',
           'delete_lower_messages', 'edit_own_messages', 'pin_message', 'set_channel_topic',
           'manage_sub_channels', 'rename_channel', 'rename_sub_channel',
-          'upload_files', 'use_voice', 'manage_webhooks', 'mention_everyone', 'view_history',
+          'upload_files', 'use_voice', 'use_tts', 'manage_webhooks', 'mention_everyone', 'view_history',
           'promote_user', 'transfer_admin', 'archive_messages', 'create_channel', 'manage_emojis', 'manage_soundboard',
           'manage_roles', 'manage_server', 'delete_channel'
         ];
@@ -5175,7 +5175,7 @@ function setupSocketHandlers(io, db) {
             'kick_user', 'mute_user', 'ban_user', 'delete_message', 'delete_own_messages',
             'delete_lower_messages', 'edit_own_messages', 'pin_message', 'set_channel_topic',
             'manage_sub_channels', 'rename_channel', 'rename_sub_channel',
-            'upload_files', 'use_voice', 'manage_webhooks', 'mention_everyone', 'view_history',
+            'upload_files', 'use_voice', 'use_tts', 'manage_webhooks', 'mention_everyone', 'view_history',
             'promote_user', 'transfer_admin', 'archive_messages', 'create_channel', 'manage_emojis', 'manage_soundboard',
             'manage_roles', 'manage_server', 'delete_channel', 'view_all_members'
           ];
@@ -5771,7 +5771,7 @@ function setupSocketHandlers(io, db) {
               'kick_user', 'mute_user', 'ban_user', 'delete_message', 'delete_own_messages',
               'delete_lower_messages', 'edit_own_messages', 'pin_message', 'set_channel_topic',
               'manage_sub_channels', 'rename_channel', 'rename_sub_channel',
-              'upload_files', 'use_voice', 'manage_webhooks', 'mention_everyone', 'view_history',
+              'upload_files', 'use_voice', 'use_tts', 'manage_webhooks', 'mention_everyone', 'view_history',
               'manage_emojis', 'manage_soundboard', 'promote_user', 'transfer_admin'
             ];
             const insertPerm = db.prepare('INSERT OR IGNORE INTO role_permissions (role_id, permission, allowed) VALUES (?, ?, 1)');
@@ -6502,6 +6502,8 @@ function setupSocketHandlers(io, db) {
         spoiler:   () => arg ? ({ content: `||${arg}||` }) : null,
         tts:       () => {
           if (!arg) return null;
+          // Check use_tts permission
+          if (!userHasPermission(socket.user.id, 'use_tts')) return { content: '_You do not have permission to use TTS._' };
           // Cap TTS content length to prevent abuse
           const ttsContent = arg.length > 500 ? arg.slice(0, 500) + '…' : arg;
           return { content: ttsContent, tts: true };

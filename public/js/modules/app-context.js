@@ -585,8 +585,14 @@ _popoutGame() {
   if (!this._currentGame) return;
   const tok = localStorage.getItem('haven_token') || '';
   const url = this._currentGame.path + '#token=' + encodeURIComponent(tok);
-  this._gameWindow = window.open(url, '_blank', 'width=740,height=860');
-  this._closeGameIframe();
+  const win = window.open(url, '_blank', 'width=740,height=860');
+  // Only close the inline iframe if the popup actually opened
+  if (win && !win.closed) {
+    this._gameWindow = win;
+    this._closeGameIframe();
+  } else {
+    this._showToast?.('Popup blocked — check your browser settings', 'error');
+  }
 },
 
 _showPushError(reason) {

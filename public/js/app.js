@@ -68,6 +68,7 @@ class HavenApp {
       { cmd: 'me',         args: '<action>', desc: 'Italic action message' },
       { cmd: 'spoiler',    args: '<text>',   desc: 'Hidden spoiler text' },
       { cmd: 'tts',        args: '<text>',   desc: 'Text-to-speech message' },
+      { cmd: 'tts:stop',   args: '',         desc: 'Stop all TTS playback' },
       { cmd: 'bbs',        args: '',         desc: 'Announce you\'ll be back soon' },
       { cmd: 'brb',        args: '',         desc: 'Announce you\'ll be right back' },
       { cmd: 'afk',        args: '',         desc: 'Away from keyboard' },

@@ -2364,7 +2364,7 @@ _renderRoleDetail() {
     'edit_own_messages', 'delete_own_messages', 'delete_message', 'delete_lower_messages',
     'pin_message', 'archive_messages', 'kick_user', 'mute_user', 'ban_user',
     'rename_channel', 'rename_sub_channel', 'set_channel_topic', 'manage_sub_channels',
-    'create_channel', 'upload_files', 'use_voice', 'manage_webhooks', 'mention_everyone', 'view_history',
+    'create_channel', 'upload_files', 'use_voice', 'use_tts', 'manage_webhooks', 'mention_everyone', 'view_history',
     'view_all_members', 'manage_emojis', 'manage_soundboard', 'promote_user', 'transfer_admin',
     'manage_roles', 'manage_server', 'delete_channel'
   ];
@@ -2377,6 +2377,7 @@ _renderRoleDetail() {
     set_channel_topic: 'Set Channel Topic', manage_sub_channels: 'Manage Sub-channels',
     create_channel: 'Create Channels',
     upload_files: 'Upload Files', use_voice: 'Use Voice Chat',
+    use_tts: 'Use Text-to-Speech',
     manage_webhooks: 'Manage Webhooks', mention_everyone: 'Mention @everyone',
     view_history: 'View Message History',
     view_all_members: 'View All Server Members',
@@ -2781,7 +2782,7 @@ _renderChannelRolesRoleDetail() {
     'edit_own_messages', 'delete_own_messages', 'delete_message', 'delete_lower_messages',
     'pin_message', 'archive_messages', 'kick_user', 'mute_user', 'ban_user',
     'rename_channel', 'rename_sub_channel', 'set_channel_topic', 'manage_sub_channels',
-    'create_channel', 'upload_files', 'use_voice', 'manage_webhooks', 'mention_everyone', 'view_history',
+    'create_channel', 'upload_files', 'use_voice', 'use_tts', 'manage_webhooks', 'mention_everyone', 'view_history',
     'view_all_members', 'manage_emojis', 'manage_soundboard', 'promote_user', 'transfer_admin',
     'manage_roles', 'manage_server', 'delete_channel'
   ];
@@ -2794,6 +2795,7 @@ _renderChannelRolesRoleDetail() {
     set_channel_topic: 'Set Channel Topic', manage_sub_channels: 'Manage Sub-channels',
     create_channel: 'Create Channels',
     upload_files: 'Upload Files', use_voice: 'Use Voice Chat',
+    use_tts: 'Use Text-to-Speech',
     manage_webhooks: 'Manage Webhooks', mention_everyone: 'Mention @everyone',
     view_history: 'View Message History',
     view_all_members: 'View All Server Members',
@@ -3181,7 +3183,7 @@ _renderRacConfig() {
     'edit_own_messages', 'delete_own_messages', 'delete_message', 'delete_lower_messages',
     'pin_message', 'archive_messages', 'kick_user', 'mute_user', 'ban_user',
     'rename_channel', 'rename_sub_channel', 'set_channel_topic', 'manage_sub_channels',
-    'create_channel', 'upload_files', 'use_voice', 'manage_webhooks', 'mention_everyone', 'view_history',
+    'create_channel', 'upload_files', 'use_voice', 'use_tts', 'manage_webhooks', 'mention_everyone', 'view_history',
     'view_all_members', 'manage_emojis', 'manage_soundboard', 'promote_user', 'transfer_admin',
     'manage_roles', 'manage_server', 'delete_channel'
   ];
@@ -3197,7 +3199,8 @@ _renderRacConfig() {
     rename_sub_channel: 'Rename Sub-channels', set_channel_topic: 'Set Topic',
     manage_sub_channels: 'Manage Sub-channels', create_channel: 'Create Channels',
     upload_files: 'Upload Files',
-    use_voice: 'Use Voice', manage_webhooks: 'Manage Webhooks',
+    use_voice: 'Use Voice', use_tts: 'Use Text-to-Speech',
+    manage_webhooks: 'Manage Webhooks',
     mention_everyone: 'Mention Everyone', view_history: 'View History',
     view_all_members: 'View All Members',
     manage_emojis: 'Manage Custom Emojis',
